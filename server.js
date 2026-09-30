@@ -81,6 +81,7 @@ app.use(express.static(__dirname, {
 const rooms = new Map(); // Map<roomCode, Set<socketId>>
 const roomMetadata = new Map(); // Map<roomCode, { createdAt: timestamp }>
 const messageLogs = []; // Store message logs for admin
+const activeCalls = new Map(); // Map<callId, callData> - Track active voice/video calls
 // Validate admin password for production
 let ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'admin123';
 
@@ -364,12 +365,203 @@ io.on('connection', (socket) => {
         console.log(`Media (${type}) shared in room ${room} from ${userName} (${userId})`);
     });
     
+    // ========== WEBRTC VOICE/VIDEO CALL HANDLERS ==========
+    
+    // User initiates a call (voice or video)
+    socket.on('call-initiate', ({ room, callType, callId }) => {
+        if (!rooms.has(room)) {
+            socket.emit('error', { message: 'Room not found' });
+            return;
+        }
+        
+        // Store call information
+        const callData = {
+            callId,
+            room,
+            callType, // 'voice' or 'video'
+            initiator: socket.id,
+            initiatorName: socket.userName,
+            participants: [socket.id],
+            startTime: new Date(),
+            status: 'ringing'
+        };
+        
+        activeCalls.set(callId, callData);
+        
+        // Notify room members about incoming call
+        socket.to(room).emit('call-incoming', {
+            callId,
+            callType,
+            from: socket.id,
+            fromName: socket.userName
+        });
+        
+        // Notify admin about new call
+        notifyAdminCallUpdate(callData);
+        
+        console.log(`${callType} call initiated by ${socket.userName} in room ${room}`);
+    });
+    
+    // User answers a call
+    socket.on('call-answer', ({ callId }) => {
+        const callData = activeCalls.get(callId);
+        if (!callData) return;
+        
+        if (!callData.participants.includes(socket.id)) {
+            callData.participants.push(socket.id);
+        }
+        callData.status = 'active';
+        
+        // Notify others in the call
+        socket.to(callData.room).emit('call-answered', {
+            callId,
+            by: socket.id,
+            byName: socket.userName
+        });
+        
+        notifyAdminCallUpdate(callData);
+        console.log(`Call ${callId} answered by ${socket.userName}`);
+    });
+    
+    // WebRTC signaling: offer, answer, ice-candidate
+    socket.on('webrtc-offer', ({ to, offer, callId }) => {
+        io.to(to).emit('webrtc-offer', {
+            from: socket.id,
+            fromName: socket.userName,
+            offer,
+            callId
+        });
+    });
+    
+    socket.on('webrtc-answer', ({ to, answer, callId }) => {
+        io.to(to).emit('webrtc-answer', {
+            from: socket.id,
+            answer,
+            callId
+        });
+    });
+    
+    socket.on('webrtc-ice-candidate', ({ to, candidate, callId }) => {
+        io.to(to).emit('webrtc-ice-candidate', {
+            from: socket.id,
+            candidate,
+            callId
+        });
+    });
+    
+    // User ends a call
+    socket.on('call-end', ({ callId }) => {
+        const callData = activeCalls.get(callId);
+        if (!callData) return;
+        
+        // Notify all participants
+        callData.participants.forEach(participantId => {
+            io.to(participantId).emit('call-ended', { callId, by: socket.id });
+        });
+        
+        // Notify admin
+        callData.status = 'ended';
+        callData.endTime = new Date();
+        callData.duration = Math.floor((callData.endTime - callData.startTime) / 1000);
+        notifyAdminCallUpdate(callData);
+        
+        // Archive and remove from active calls
+        messageLogs.push({
+            type: 'call',
+            callType: callData.callType,
+            room: callData.room,
+            initiator: callData.initiatorName,
+            participants: callData.participants.length,
+            duration: callData.duration,
+            timestamp: callData.startTime.toISOString()
+        });
+        
+        activeCalls.delete(callId);
+        console.log(`Call ${callId} ended. Duration: ${callData.duration}s`);
+    });
+    
+    // Admin requests call recording (streams audio/video to admin)
+    socket.on('admin-start-recording', ({ callId }) => {
+        if (!socket.isAdmin) return;
+        
+        const callData = activeCalls.get(callId);
+        if (!callData) {
+            socket.emit('error', { message: 'Call not found' });
+            return;
+        }
+        
+        callData.recording = true;
+        callData.recordingAdmin = socket.id;
+        
+        // Notify call participants (optional - for transparency)
+        callData.participants.forEach(participantId => {
+            io.to(participantId).emit('call-recording-started', { callId });
+        });
+        
+        console.log(`Admin started recording call ${callId}`);
+    });
+    
+    socket.on('admin-stop-recording', ({ callId }) => {
+        if (!socket.isAdmin) return;
+        
+        const callData = activeCalls.get(callId);
+        if (!callData) return;
+        
+        callData.recording = false;
+        delete callData.recordingAdmin;
+        
+        console.log(`Admin stopped recording call ${callId}`);
+    });
+    
+    // Helper function to notify admin about call updates
+    function notifyAdminCallUpdate(callData) {
+        const adminSockets = Array.from(io.sockets.sockets.values()).filter(s => s.isAdmin);
+        adminSockets.forEach(adminSocket => {
+            adminSocket.emit('admin-call-update', {
+                callId: callData.callId,
+                room: callData.room,
+                callType: callData.callType,
+                initiator: callData.initiatorName,
+                participants: callData.participants.length,
+                status: callData.status,
+                recording: callData.recording || false,
+                startTime: callData.startTime.toISOString(),
+                duration: callData.status === 'active' ? Math.floor((new Date() - callData.startTime) / 1000) : 0
+            });
+        });
+    }
+    
     // Handle disconnection
     socket.on('disconnect', () => {
         console.log('Client disconnected:', socket.id);
         
         const userName = socket.userName;
         const currentRoom = socket.currentRoom;
+        
+        // End any active calls this user was in
+        activeCalls.forEach((callData, callId) => {
+            if (callData.participants.includes(socket.id)) {
+                // Notify other participants
+                callData.participants.forEach(participantId => {
+                    if (participantId !== socket.id) {
+                        io.to(participantId).emit('call-ended', { 
+                            callId, 
+                            by: socket.id,
+                            reason: 'participant-disconnected'
+                        });
+                    }
+                });
+                
+                // If initiator disconnects, end the call
+                if (callData.initiator === socket.id) {
+                    callData.status = 'ended';
+                    callData.endTime = new Date();
+                    callData.duration = Math.floor((callData.endTime - callData.startTime) / 1000);
+                    activeCalls.delete(callId);
+                    console.log(`Call ${callId} ended due to initiator disconnect`);
+                }
+            }
+        });
         
         // Remove user from all rooms
         rooms.forEach((users, room) => {
@@ -434,18 +626,53 @@ io.on('connection', (socket) => {
             totalUsers += users.size;
         });
         
+        // Count active calls
+        let voiceCalls = 0;
+        let videoCalls = 0;
+        activeCalls.forEach(call => {
+            if (call.status === 'active') {
+                if (call.callType === 'voice') voiceCalls++;
+                if (call.callType === 'video') videoCalls++;
+            }
+        });
+        
         const uptime = Math.floor((new Date() - serverStartTime) / 1000);
         const uptimeStr = formatUptime(uptime);
         
         socket.emit('admin-stats', {
             totalRooms: rooms.size,
             totalUsers: totalUsers,
+            activeCalls: activeCalls.size,
+            voiceCalls: voiceCalls,
+            videoCalls: videoCalls,
             serverOnline: true,
             serverInfo: {
                 uptime: uptimeStr,
                 port: PORT
             }
         });
+    });
+    
+    // Get all active calls (admin only)
+    socket.on('admin-get-calls', () => {
+        if (!socket.isAdmin) return;
+        
+        const callsData = [];
+        activeCalls.forEach((call, callId) => {
+            callsData.push({
+                callId: call.callId,
+                room: call.room,
+                callType: call.callType,
+                initiator: call.initiatorName,
+                participants: call.participants.length,
+                status: call.status,
+                recording: call.recording || false,
+                startTime: call.startTime.toISOString(),
+                duration: Math.floor((new Date() - call.startTime) / 1000)
+            });
+        });
+        
+        socket.emit('admin-calls', { calls: callsData });
     });
     
     // Get all rooms

@@ -835,3 +835,439 @@ function showError(message) {
         errorDiv.remove();
     }, 3000);
 }
+
+
+// ==================== WEBRTC VOICE/VIDEO CALL FUNCTIONALITY ====================
+
+let localStream = null;
+let peerConnection = null;
+let currentCallId = null;
+let currentCallType = null;
+let callTimer = null;
+let callStartTime = null;
+let isMuted = false;
+let isVideoEnabled = true;
+let incomingCallData = null;
+
+// WebRTC Configuration
+const rtcConfiguration = {
+    iceServers: [
+        { urls: 'stun:stun.l.google.com:19302' },
+        { urls: 'stun:stun1.l.google.com:19302' }
+    ]
+};
+
+// Start Voice Call
+async function startVoiceCall() {
+    if (!currentRoom) {
+        showError('Join a room first');
+        return;
+    }
+    
+    currentCallType = 'voice';
+    currentCallId = 'call_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+    
+    try {
+        // Get audio stream
+        localStream = await navigator.mediaDevices.getUserMedia({ 
+            audio: true, 
+            video: false 
+        });
+        
+        // Notify server
+        socket.emit('call-initiate', {
+            room: currentRoom,
+            callType: 'voice',
+            callId: currentCallId
+        });
+        
+        // Show call UI
+        showCallModal('voice');
+        updateCallStatus('Calling...');
+        
+    } catch (error) {
+        console.error('Error starting voice call:', error);
+        showError('Could not access microphone: ' + error.message);
+    }
+}
+
+// Start Video Call
+async function startVideoCall() {
+    if (!currentRoom) {
+        showError('Join a room first');
+        return;
+    }
+    
+    currentCallType = 'video';
+    currentCallId = 'call_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+    
+    try {
+        // Get audio and video stream
+        localStream = await navigator.mediaDevices.getUserMedia({ 
+            audio: true, 
+            video: { width: 1280, height: 720 } 
+        });
+        
+        // Notify server
+        socket.emit('call-initiate', {
+            room: currentRoom,
+            callType: 'video',
+            callId: currentCallId
+        });
+        
+        // Show call UI
+        showCallModal('video');
+        updateCallStatus('Calling...');
+        
+        // Show local video
+        const localVideo = document.getElementById('local-video');
+        if (localVideo) {
+            localVideo.srcObject = localStream;
+        }
+        
+    } catch (error) {
+        console.error('Error starting video call:', error);
+        showError('Could not access camera/microphone: ' + error.message);
+    }
+}
+
+// Show Call Modal
+function showCallModal(type) {
+    const modal = document.getElementById('call-modal');
+    const title = document.getElementById('call-title');
+    const videoContainer = document.getElementById('video-container');
+    const videoToggle = document.getElementById('video-toggle-btn');
+    
+    if (type === 'video') {
+        title.textContent = 'Video Call';
+        videoContainer.style.display = 'block';
+        videoToggle.style.display = 'block';
+    } else {
+        title.textContent = 'Voice Call';
+        videoContainer.style.display = 'none';
+        videoToggle.style.display = 'none';
+    }
+    
+    modal.classList.add('active');
+    startCallTimer();
+}
+
+// Handle Incoming Call
+socket.on('call-incoming', (data) => {
+    console.log('Incoming call:', data);
+    incomingCallData = data;
+    
+    // Show incoming call UI
+    const modal = document.getElementById('incoming-call-modal');
+    const fromName = document.getElementById('incoming-call-from');
+    const callType = document.getElementById('incoming-call-type');
+    
+    fromName.textContent = `${data.fromName || 'Someone'} is calling`;
+    callType.textContent = data.callType === 'video' ? 'Video Call' : 'Voice Call';
+    
+    modal.classList.add('active');
+    
+    // Play ringtone (optional)
+    playRingtone();
+});
+
+// Answer Call
+async function answerCall() {
+    if (!incomingCallData) return;
+    
+    const modal = document.getElementById('incoming-call-modal');
+    modal.classList.remove('active');
+    stopRingtone();
+    
+    currentCallId = incomingCallData.callId;
+    currentCallType = incomingCallData.callType;
+    
+    try {
+        // Get media stream
+        const constraints = {
+            audio: true,
+            video: currentCallType === 'video'
+        };
+        
+        localStream = await navigator.mediaDevices.getUserMedia(constraints);
+        
+        // Notify server
+        socket.emit('call-answer', { callId: currentCallId });
+        
+        // Show call UI
+        showCallModal(currentCallType);
+        updateCallStatus('Connected');
+        
+        if (currentCallType === 'video') {
+            const localVideo = document.getElementById('local-video');
+            if (localVideo) {
+                localVideo.srcObject = localStream;
+            }
+        }
+        
+        // Setup WebRTC connection
+        await setupPeerConnection(incomingCallData.from);
+        
+    } catch (error) {
+        console.error('Error answering call:', error);
+        showError('Could not answer call: ' + error.message);
+    }
+}
+
+// Reject Call
+function rejectCall() {
+    if (!incomingCallData) return;
+    
+    const modal = document.getElementById('incoming-call-modal');
+    modal.classList.remove('active');
+    stopRingtone();
+    
+    // Notify server (optional)
+    socket.emit('call-end', { callId: incomingCallData.callId });
+    
+    incomingCallData = null;
+}
+
+// Setup Peer Connection
+async function setupPeerConnection(remotePeerId) {
+    peerConnection = new RTCPeerConnection(rtcConfiguration);
+    
+    // Add local stream tracks
+    localStream.getTracks().forEach(track => {
+        peerConnection.addTrack(track, localStream);
+    });
+    
+    // Handle incoming stream
+    peerConnection.ontrack = (event) => {
+        console.log('Received remote track:', event.track.kind);
+        const remoteVideo = document.getElementById('remote-video');
+        if (remoteVideo && event.streams[0]) {
+            remoteVideo.srcObject = event.streams[0];
+        }
+    };
+    
+    // Handle ICE candidates
+    peerConnection.onicecandidate = (event) => {
+        if (event.candidate) {
+            socket.emit('webrtc-ice-candidate', {
+                to: remotePeerId,
+                candidate: event.candidate,
+                callId: currentCallId
+            });
+        }
+    };
+    
+    // Create and send offer
+    const offer = await peerConnection.createOffer();
+    await peerConnection.setLocalDescription(offer);
+    
+    socket.emit('webrtc-offer', {
+        to: remotePeerId,
+        offer: offer,
+        callId: currentCallId
+    });
+}
+
+// Handle WebRTC Signaling
+socket.on('webrtc-offer', async (data) => {
+    console.log('Received WebRTC offer');
+    
+    if (!peerConnection) {
+        peerConnection = new RTCPeerConnection(rtcConfiguration);
+        
+        localStream.getTracks().forEach(track => {
+            peerConnection.addTrack(track, localStream);
+        });
+        
+        peerConnection.ontrack = (event) => {
+            const remoteVideo = document.getElementById('remote-video');
+            if (remoteVideo && event.streams[0]) {
+                remoteVideo.srcObject = event.streams[0];
+            }
+        };
+        
+        peerConnection.onicecandidate = (event) => {
+            if (event.candidate) {
+                socket.emit('webrtc-ice-candidate', {
+                    to: data.from,
+                    candidate: event.candidate,
+                    callId: data.callId
+                });
+            }
+        };
+    }
+    
+    await peerConnection.setRemoteDescription(new RTCSessionDescription(data.offer));
+    const answer = await peerConnection.createAnswer();
+    await peerConnection.setLocalDescription(answer);
+    
+    socket.emit('webrtc-answer', {
+        to: data.from,
+        answer: answer,
+        callId: data.callId
+    });
+});
+
+socket.on('webrtc-answer', async (data) => {
+    console.log('Received WebRTC answer');
+    await peerConnection.setRemoteDescription(new RTCSessionDescription(data.answer));
+    updateCallStatus('Connected');
+});
+
+socket.on('webrtc-ice-candidate', async (data) => {
+    if (peerConnection && data.candidate) {
+        await peerConnection.addIceCandidate(new RTCIceCandidate(data.candidate));
+    }
+});
+
+// End Call
+function endCall() {
+    // Stop media streams
+    if (localStream) {
+        localStream.getTracks().forEach(track => track.stop());
+        localStream = null;
+    }
+    
+    // Close peer connection
+    if (peerConnection) {
+        peerConnection.close();
+        peerConnection = null;
+    }
+    
+    // Notify server
+    if (currentCallId) {
+        socket.emit('call-end', { callId: currentCallId });
+    }
+    
+    // Hide call UI
+    const modal = document.getElementById('call-modal');
+    modal.classList.remove('active');
+    
+    // Reset call state
+    stopCallTimer();
+    currentCallId = null;
+    currentCallType = null;
+    isMuted = false;
+    isVideoEnabled = true;
+}
+
+// Handle Call Ended by Others
+socket.on('call-ended', (data) => {
+    console.log('Call ended:', data);
+    endCall();
+    
+    if (data.reason) {
+        showError('Call ended: ' + data.reason.replace('-', ' '));
+    } else {
+        addSystemMessage('Call ended');
+    }
+});
+
+// Call Answered by Someone
+socket.on('call-answered', (data) => {
+    console.log('Call answered by:', data.byName);
+    updateCallStatus('Connected');
+    addSystemMessage(`${data.byName} joined the call`);
+});
+
+// Toggle Mute
+function toggleMute() {
+    if (!localStream) return;
+    
+    const audioTrack = localStream.getAudioTracks()[0];
+    if (audioTrack) {
+        audioTrack.enabled = !audioTrack.enabled;
+        isMuted = !audioTrack.enabled;
+        
+        const muteBtn = document.getElementById('mute-btn');
+        if (isMuted) {
+            muteBtn.classList.add('muted');
+            muteBtn.querySelector('span').textContent = '🎤⛔';
+        } else {
+            muteBtn.classList.remove('muted');
+            muteBtn.querySelector('span').textContent = '🎤';
+        }
+    }
+}
+
+// Toggle Video
+function toggleVideo() {
+    if (!localStream) return;
+    
+    const videoTrack = localStream.getVideoTracks()[0];
+    if (videoTrack) {
+        videoTrack.enabled = !videoTrack.enabled;
+        isVideoEnabled = videoTrack.enabled;
+        
+        const videoBtn = document.getElementById('video-toggle-btn');
+        if (!isVideoEnabled) {
+            videoBtn.classList.add('video-off');
+            videoBtn.querySelector('span').textContent = '📹⛔';
+        } else {
+            videoBtn.classList.remove('video-off');
+            videoBtn.querySelector('span').textContent = '📹';
+        }
+    }
+}
+
+// Call Timer
+function startCallTimer() {
+    callStartTime = Date.now();
+    callTimer = setInterval(updateCallTimer, 1000);
+}
+
+function updateCallTimer() {
+    const elapsed = Math.floor((Date.now() - callStartTime) / 1000);
+    const minutes = Math.floor(elapsed / 60).toString().padStart(2, '0');
+    const seconds = (elapsed % 60).toString().padStart(2, '0');
+    
+    const timerElement = document.getElementById('call-timer');
+    if (timerElement) {
+        timerElement.textContent = `${minutes}:${seconds}`;
+    }
+}
+
+function stopCallTimer() {
+    if (callTimer) {
+        clearInterval(callTimer);
+        callTimer = null;
+    }
+    callStartTime = null;
+}
+
+// Update Call Status
+function updateCallStatus(status) {
+    const statusElement = document.getElementById('call-status');
+    if (statusElement) {
+        statusElement.textContent = status;
+    }
+}
+
+// Ringtone Functions
+let ringtoneAudio = null;
+
+function playRingtone() {
+    // Create audio element for ringtone (you can add an actual audio file)
+    ringtoneAudio = new Audio();
+    ringtoneAudio.src = 'data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBSuBzvLZiTYIGGG06+mjUBELTqTj7bllHAU2jdXyy3knBSp+y/DbkUALF1+z6OyrVBILSKDh7r9sIAU';
+    ringtoneAudio.loop = true;
+    ringtoneAudio.play().catch(e => console.log('Could not play ringtone:', e));
+}
+
+function stopRingtone() {
+    if (ringtoneAudio) {
+        ringtoneAudio.pause();
+        ringtoneAudio = null;
+    }
+}
+
+// Handle Call Recording Started (for transparency)
+socket.on('call-recording-started', (data) => {
+    addSystemMessage('⚠️ This call is being recorded by admin');
+    const statusElement = document.getElementById('call-status');
+    if (statusElement) {
+        statusElement.innerHTML = 'Connected <span style="color: #ff5252;">● REC</span>';
+    }
+});
+
+console.log('✓ WebRTC call functionality initialized');
