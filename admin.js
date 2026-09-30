@@ -101,9 +101,9 @@ function connectAdminSocket() {
         return;
     }
     
-    const socketUrl = 'http://localhost:3000';
+    const socketUrl = window.SERVER_URL || (window.location.hostname === 'localhost' ? 'http://localhost:3000' : window.location.origin);
     
-    console.log('Connecting to server as admin...');
+    console.log('Connecting to server as admin:', socketUrl);
     
     adminSocket = io(socketUrl, {
         reconnection: true,
@@ -437,19 +437,59 @@ function exportLogs() {
 
 // Change Admin Password
 function changeAdminPassword() {
-    const newPassword = prompt('Enter new admin password:');
+    const oldPassword = prompt('Enter current admin password:');
+    if (!oldPassword) return;
     
-    if (!newPassword) {
-        return;
-    }
+    const newPassword = prompt('Enter new admin password:');
+    if (!newPassword) return;
     
     if (newPassword.length < 6) {
         showAdminError('Password must be at least 6 characters');
         return;
     }
     
-    // Note: In production, this should be stored securely on the server
-    showAdminError('Password change requires server-side implementation. Please update ADMIN_PASSWORD in admin.js');
+    if (!adminSocket || !adminSocket.connected) {
+        showAdminError('Not connected to server');
+        return;
+    }
+    
+    // Ask for confirmation
+    if (!confirm('Change admin password? This will disconnect all admin sessions.')) {
+        return;
+    }
+    
+    // Request password change from server
+    adminSocket.emit('admin-change-password', {
+        oldPassword: oldPassword,
+        newPassword: newPassword
+    });
+    
+    // Listen for response
+    const onPasswordChanged = (data) => {
+        if (data.success) {
+            showAdminError('Password updated successfully. Reconnecting...');
+            // Update client-side password and reconnect
+            ADMIN_PASSWORD = newPassword;
+            setTimeout(() => {
+                adminLogout();
+                document.getElementById('admin-password').value = '';
+                document.getElementById('admin-password').focus();
+            }, 2000);
+        } else {
+            showAdminError(data.message || 'Password change failed');
+        }
+        adminSocket.off('password-changed', onPasswordChanged);
+        adminSocket.off('error', onPasswordChangeError);
+    };
+    
+    const onPasswordChangeError = (error) => {
+        showAdminError(error.message || 'Password change error');
+        adminSocket.off('password-changed', onPasswordChanged);
+        adminSocket.off('error', onPasswordChangeError);
+    };
+    
+    adminSocket.on('password-changed', onPasswordChanged);
+    adminSocket.on('error', onPasswordChangeError);
 }
 
 // Refresh Dashboard

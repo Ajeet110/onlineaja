@@ -27,7 +27,7 @@ app.use(express.static(__dirname));
 const rooms = new Map(); // Map<roomCode, Set<socketId>>
 const roomMetadata = new Map(); // Map<roomCode, { createdAt: timestamp }>
 const messageLogs = []; // Store message logs for admin
-const ADMIN_PASSWORD = 'admin123'; // Change this to a secure password
+let ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'admin123'; // Can be changed via admin panel
 const serverStartTime = new Date();
 
 // Cleanup rooms daily at midnight
@@ -298,6 +298,28 @@ io.on('connection', (socket) => {
         } else {
             socket.emit('error', { message: 'Invalid admin password' });
         }
+    });
+    
+    // Change admin password
+    socket.on('admin-change-password', (data) => {
+        if (!socket.isAdmin) return;
+        
+        const { oldPassword, newPassword } = data;
+        
+        if (oldPassword !== ADMIN_PASSWORD) {
+            socket.emit('error', { message: 'Current password is incorrect' });
+            return;
+        }
+        
+        if (!newPassword || newPassword.length < 6) {
+            socket.emit('error', { message: 'New password must be at least 6 characters' });
+            return;
+        }
+        
+        // Update password
+        ADMIN_PASSWORD = newPassword;
+        console.log(`Admin password changed by ${socket.id}`);
+        socket.emit('password-changed', { success: true, message: 'Password updated successfully' });
     });
     
     // Get admin stats
