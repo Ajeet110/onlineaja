@@ -46,9 +46,14 @@ function initSocket() {
     // Connect to server - use explicit URL for production or window.location.origin
     const socketUrl = window.SERVER_URL || 'https://ajeetup82.blitz.cloud';
     
-    console.log('Initializing Socket.IO connection...');
+    console.log('═══════════════════════════════════════════');
+    console.log('🔌 WebSocket Connection Configuration');
+    console.log('═══════════════════════════════════════════');
+    console.log('Script Version: 2024-09-30-v2');
     console.log('Socket URL:', socketUrl);
     console.log('Current location:', window.location.href);
+    console.log('window.SERVER_URL:', window.SERVER_URL || 'not set');
+    console.log('═══════════════════════════════════════════');
     
     try {
         socket = io(socketUrl, {
