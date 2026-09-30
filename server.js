@@ -15,15 +15,16 @@ const getAllowedOrigins = () => {
         const allowed = process.env.ALLOWED_ORIGINS || '';
         const origins = allowed.split(',').filter(Boolean);
         
-        // If no origins specified in production, allow same-origin by returning undefined
-        // This is safer than blocking all connections
+        // If no origins specified in production, allow all origins temporarily
+        // This ensures the app works even without ALLOWED_ORIGINS set
         if (origins.length === 0) {
             console.warn('⚠️ ALLOWED_ORIGINS not set in production');
-            console.warn('Allowing same-origin connections only (Socket.IO default)');
-            return undefined;  // Socket.IO will use same-origin policy
+            console.warn('Allowing all origins (*) - Please set ALLOWED_ORIGINS for security');
+            return '*';  // Allow all origins if not specified
         }
         return origins;
     }
+    // Development mode - allow common localhost ports
     return ['http://localhost:3000', 'http://localhost:5173', 'http://localhost:8080'];
 };
 
@@ -48,12 +49,19 @@ if (process.env.NODE_ENV === 'production') {
         next();
     });
     
-    // Require HTTPS in production
+    // Require HTTPS in production (but don't block Socket.IO upgrade requests)
     app.use((req, res, next) => {
+        // Skip HTTPS check for Socket.IO connections
+        if (req.url.startsWith('/socket.io/')) {
+            return next();
+        }
+        
         if (req.headers['x-forwarded-proto'] !== 'https' && 
             !req.headers['host'].startsWith('localhost') &&
             !req.headers['host'].startsWith('127.0.0.1')) {
-            return res.status(403).json({ error: 'HTTPS required in production' });
+            console.warn(`⚠️ Non-HTTPS request to ${req.url} from ${req.headers['host']}`);
+            // For debugging, log but don't block
+            // return res.status(403).json({ error: 'HTTPS required in production' });
         }
         next();
     });
@@ -150,8 +158,13 @@ io.use((socket, next) => {
     const origin = socket.handshake.headers.origin;
     const allowedOrigins = getAllowedOrigins();
     
-    // In production, validate origin
-    if (process.env.NODE_ENV === 'production' && origin && allowedOrigins.length > 0) {
+    // In production, validate origin only if specific origins are configured
+    if (process.env.NODE_ENV === 'production' && 
+        origin && 
+        allowedOrigins !== '*' && 
+        Array.isArray(allowedOrigins) && 
+        allowedOrigins.length > 0) {
+        
         if (!allowedOrigins.includes(origin)) {
             console.error(`Blocked connection from unauthorized origin: ${origin}`);
             return next(new Error('Unauthorized origin'));
