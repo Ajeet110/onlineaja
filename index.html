@@ -95,19 +95,19 @@
                         <span id="status-text">Connecting...</span>
                     </div>
                 </div>
-                <div class="call-controls">
+                <div class="header-actions">
                     <button class="btn btn-call btn-voice" onclick="startVoiceCall()" title="Voice Call">
                         <span class="call-icon">📞</span>
                     </button>
                     <button class="btn btn-call btn-video" onclick="startVideoCall()" title="Video Call">
                         <span class="call-icon">📹</span>
                     </button>
+                    <div class="user-count">
+                        <span class="user-icon">👥</span>
+                        <span id="user-count">0</span>
+                    </div>
+                    <button class="btn btn-small btn-ghost" onclick="leaveRoom()">Leave</button>
                 </div>
-                <div class="user-count">
-                    <span class="user-icon">👥</span>
-                    <span id="user-count">0</span> online
-                </div>
-                <button class="btn btn-small btn-ghost" onclick="leaveRoom()">Leave</button>
             </div>
 
             <div class="messages-container" id="messages-container">
@@ -240,6 +240,6 @@
 
     <!-- Socket.io CDN -->
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
-    <script src="script.js?v=20240930-2"></script>
+    <script src="script.js?v=20240930-3"></script>
 </body>
 </html>

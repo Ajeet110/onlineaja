@@ -258,18 +258,23 @@ body {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 15px;
+    padding: 15px 20px;
     background: var(--bg-dark);
     border: 2px solid var(--border-color);
     margin-bottom: 15px;
-    flex-wrap: wrap;
-    gap: 10px;
 }
 
 .room-info {
     display: flex;
     flex-direction: column;
     gap: 5px;
+    flex: 1;
+}
+
+.header-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
 }
 
 .room-code {
@@ -890,40 +895,45 @@ input[type="number"] {
 
 /* ==================== CALL FEATURES ==================== */
 
-/* Call Controls in Header */
-.call-controls {
-    display: flex;
-    gap: 8px;
-    align-items: center;
-}
-
-.btn-call {
-    padding: 8px 12px;
+/* Call Buttons in Header (WhatsApp Style) */
+.header-actions .btn-call {
+    padding: 6px 10px;
     border: none;
     border-radius: 50%;
     cursor: pointer;
-    font-size: 1.2rem;
-    background: rgba(255, 255, 255, 0.1);
-    color: white;
-    transition: all 0.3s;
-    width: 40px;
-    height: 40px;
+    font-size: 1.3rem;
+    background: transparent;
+    color: var(--primary);
+    transition: all 0.2s;
+    width: 38px;
+    height: 38px;
     display: flex;
     align-items: center;
     justify-content: center;
 }
 
-.btn-call:hover {
-    background: rgba(255, 255, 255, 0.2);
+.header-actions .btn-call:hover {
+    background: rgba(102, 126, 234, 0.15);
     transform: scale(1.1);
 }
 
-.btn-call.btn-voice:hover {
-    background: rgba(76, 175, 80, 0.3);
+.header-actions .btn-call.btn-voice {
+    color: #4caf50;
 }
 
-.btn-call.btn-video:hover {
-    background: rgba(33, 150, 243, 0.3);
+.header-actions .btn-call.btn-video {
+    color: #2196f3;
+}
+
+.header-actions .user-count {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    padding: 5px 10px;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 15px;
+    font-size: 0.9rem;
+    color: var(--text-dim);
 }
 
 /* Call Modal */
@@ -1037,8 +1047,8 @@ input[type="number"] {
     height: 100%;
 }
 
-/* Call Control Buttons */
-.call-controls {
+/* Call Control Buttons in Modal */
+.call-modal .call-controls {
     display: flex;
     justify-content: center;
     gap: 15px;

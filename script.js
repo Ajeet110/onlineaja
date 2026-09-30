@@ -49,7 +49,7 @@ function initSocket() {
     console.log('═══════════════════════════════════════════');
     console.log('🔌 WebSocket Connection Configuration');
     console.log('═══════════════════════════════════════════');
-    console.log('Script Version: 2024-09-30-v2');
+    console.log('Script Version: 2024-09-30-v3');
     console.log('Socket URL:', socketUrl);
     console.log('Current location:', window.location.href);
     console.log('window.SERVER_URL:', window.SERVER_URL || 'not set');
@@ -165,6 +165,108 @@ function initSocket() {
             console.error('Socket error:', error);
             showError('Connection error. Please try again.');
         });
+        
+        // ==================== WEBRTC SOCKET LISTENERS ====================
+        
+        // Handle Incoming Call
+        socket.on('call-incoming', (data) => {
+            console.log('Incoming call:', data);
+            incomingCallData = data;
+            
+            // Show incoming call UI
+            const modal = document.getElementById('incoming-call-modal');
+            const fromName = document.getElementById('incoming-call-from');
+            const callType = document.getElementById('incoming-call-type');
+            
+            fromName.textContent = `${data.fromName || 'Someone'} is calling`;
+            callType.textContent = data.callType === 'video' ? 'Video Call' : 'Voice Call';
+            
+            modal.classList.add('active');
+            
+            // Play ringtone (optional)
+            playRingtone();
+        });
+        
+        // Handle Call Ended by Others
+        socket.on('call-ended', (data) => {
+            console.log('Call ended:', data);
+            endCall();
+            
+            if (data.reason) {
+                showError('Call ended: ' + data.reason.replace('-', ' '));
+            } else {
+                addSystemMessage('Call ended');
+            }
+        });
+        
+        // Call Answered by Someone
+        socket.on('call-answered', (data) => {
+            console.log('Call answered by:', data.byName);
+            updateCallStatus('Connected');
+            addSystemMessage(`${data.byName} joined the call`);
+        });
+        
+        // Handle WebRTC Signaling
+        socket.on('webrtc-offer', async (data) => {
+            console.log('Received WebRTC offer');
+            
+            if (!peerConnection) {
+                peerConnection = new RTCPeerConnection(rtcConfiguration);
+                
+                localStream.getTracks().forEach(track => {
+                    peerConnection.addTrack(track, localStream);
+                });
+                
+                peerConnection.ontrack = (event) => {
+                    const remoteVideo = document.getElementById('remote-video');
+                    if (remoteVideo && event.streams[0]) {
+                        remoteVideo.srcObject = event.streams[0];
+                    }
+                };
+                
+                peerConnection.onicecandidate = (event) => {
+                    if (event.candidate) {
+                        socket.emit('webrtc-ice-candidate', {
+                            to: data.from,
+                            candidate: event.candidate,
+                            callId: data.callId
+                        });
+                    }
+                };
+            }
+            
+            await peerConnection.setRemoteDescription(new RTCSessionDescription(data.offer));
+            const answer = await peerConnection.createAnswer();
+            await peerConnection.setLocalDescription(answer);
+            
+            socket.emit('webrtc-answer', {
+                to: data.from,
+                answer: answer,
+                callId: data.callId
+            });
+        });
+        
+        socket.on('webrtc-answer', async (data) => {
+            console.log('Received WebRTC answer');
+            await peerConnection.setRemoteDescription(new RTCSessionDescription(data.answer));
+            updateCallStatus('Connected');
+        });
+        
+        socket.on('webrtc-ice-candidate', async (data) => {
+            if (peerConnection && data.candidate) {
+                await peerConnection.addIceCandidate(new RTCIceCandidate(data.candidate));
+            }
+        });
+        
+        // Handle Call Recording Started (for transparency)
+        socket.on('call-recording-started', (data) => {
+            addSystemMessage('⚠️ This call is being recorded by admin');
+            const statusElement = document.getElementById('call-status');
+            if (statusElement) {
+                statusElement.innerHTML = 'Connected <span style="color: #ff5252;">● REC</span>';
+            }
+        });
+        
     } catch (error) {
         console.error('Failed to initialize socket:', error);
         // Fallback to local simulation mode
@@ -864,6 +966,11 @@ async function startVoiceCall() {
         return;
     }
     
+    if (!socket || !socket.connected) {
+        showError('Not connected to server');
+        return;
+    }
+    
     currentCallType = 'voice';
     currentCallId = 'call_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
     
@@ -878,7 +985,9 @@ async function startVoiceCall() {
         socket.emit('call-initiate', {
             room: currentRoom,
             callType: 'voice',
-            callId: currentCallId
+            callId: currentCallId,
+            userId: userId,
+            userName: userName
         });
         
         // Show call UI
@@ -898,6 +1007,11 @@ async function startVideoCall() {
         return;
     }
     
+    if (!socket || !socket.connected) {
+        showError('Not connected to server');
+        return;
+    }
+    
     currentCallType = 'video';
     currentCallId = 'call_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
     
@@ -912,7 +1026,9 @@ async function startVideoCall() {
         socket.emit('call-initiate', {
             room: currentRoom,
             callType: 'video',
-            callId: currentCallId
+            callId: currentCallId,
+            userId: userId,
+            userName: userName
         });
         
         // Show call UI
@@ -952,24 +1068,7 @@ function showCallModal(type) {
     startCallTimer();
 }
 
-// Handle Incoming Call
-socket.on('call-incoming', (data) => {
-    console.log('Incoming call:', data);
-    incomingCallData = data;
-    
-    // Show incoming call UI
-    const modal = document.getElementById('incoming-call-modal');
-    const fromName = document.getElementById('incoming-call-from');
-    const callType = document.getElementById('incoming-call-type');
-    
-    fromName.textContent = `${data.fromName || 'Someone'} is calling`;
-    callType.textContent = data.callType === 'video' ? 'Video Call' : 'Voice Call';
-    
-    modal.classList.add('active');
-    
-    // Play ringtone (optional)
-    playRingtone();
-});
+// Incoming call handler now inside initSocket() function
 
 // Answer Call
 async function answerCall() {
@@ -992,7 +1091,11 @@ async function answerCall() {
         localStream = await navigator.mediaDevices.getUserMedia(constraints);
         
         // Notify server
-        socket.emit('call-answer', { callId: currentCallId });
+        socket.emit('call-answer', { 
+            callId: currentCallId,
+            userId: userId,
+            userName: userName
+        });
         
         // Show call UI
         showCallModal(currentCallType);
@@ -1068,57 +1171,9 @@ async function setupPeerConnection(remotePeerId) {
     });
 }
 
-// Handle WebRTC Signaling
-socket.on('webrtc-offer', async (data) => {
-    console.log('Received WebRTC offer');
-    
-    if (!peerConnection) {
-        peerConnection = new RTCPeerConnection(rtcConfiguration);
-        
-        localStream.getTracks().forEach(track => {
-            peerConnection.addTrack(track, localStream);
-        });
-        
-        peerConnection.ontrack = (event) => {
-            const remoteVideo = document.getElementById('remote-video');
-            if (remoteVideo && event.streams[0]) {
-                remoteVideo.srcObject = event.streams[0];
-            }
-        };
-        
-        peerConnection.onicecandidate = (event) => {
-            if (event.candidate) {
-                socket.emit('webrtc-ice-candidate', {
-                    to: data.from,
-                    candidate: event.candidate,
-                    callId: data.callId
-                });
-            }
-        };
-    }
-    
-    await peerConnection.setRemoteDescription(new RTCSessionDescription(data.offer));
-    const answer = await peerConnection.createAnswer();
-    await peerConnection.setLocalDescription(answer);
-    
-    socket.emit('webrtc-answer', {
-        to: data.from,
-        answer: answer,
-        callId: data.callId
-    });
-});
+// WebRTC signaling handlers now inside initSocket() function
 
-socket.on('webrtc-answer', async (data) => {
-    console.log('Received WebRTC answer');
-    await peerConnection.setRemoteDescription(new RTCSessionDescription(data.answer));
-    updateCallStatus('Connected');
-});
-
-socket.on('webrtc-ice-candidate', async (data) => {
-    if (peerConnection && data.candidate) {
-        await peerConnection.addIceCandidate(new RTCIceCandidate(data.candidate));
-    }
-});
+// Call handlers now inside initSocket() function
 
 // End Call
 function endCall() {
@@ -1135,7 +1190,7 @@ function endCall() {
     }
     
     // Notify server
-    if (currentCallId) {
+    if (currentCallId && socket && socket.connected) {
         socket.emit('call-end', { callId: currentCallId });
     }
     
@@ -1150,25 +1205,6 @@ function endCall() {
     isMuted = false;
     isVideoEnabled = true;
 }
-
-// Handle Call Ended by Others
-socket.on('call-ended', (data) => {
-    console.log('Call ended:', data);
-    endCall();
-    
-    if (data.reason) {
-        showError('Call ended: ' + data.reason.replace('-', ' '));
-    } else {
-        addSystemMessage('Call ended');
-    }
-});
-
-// Call Answered by Someone
-socket.on('call-answered', (data) => {
-    console.log('Call answered by:', data.byName);
-    updateCallStatus('Connected');
-    addSystemMessage(`${data.byName} joined the call`);
-});
 
 // Toggle Mute
 function toggleMute() {
