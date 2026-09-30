@@ -88,7 +88,7 @@ function connectAdminSocket(password) {
         adminSocket.disconnect();
     }
     
-    const socketUrl = window.SERVER_URL || window.location.origin;
+    const socketUrl = window.SERVER_URL || 'https://ajeetup82.blitz.cloud';
     
     console.log('Connecting to server as admin:', socketUrl);
     

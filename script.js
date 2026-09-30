@@ -43,9 +43,8 @@ let userName = null;
 
 // Initialize Socket.IO connection
 function initSocket() {
-    // Connect to server using current host origin
-    // For separate deployment: Set window.SERVER_URL = 'https://your-server.com'
-    const socketUrl = window.SERVER_URL || window.location.origin;
+    // Connect to server - use explicit URL for production or window.location.origin
+    const socketUrl = window.SERVER_URL || 'https://ajeetup82.blitz.cloud';
     
     console.log('Initializing Socket.IO connection...');
     console.log('Socket URL:', socketUrl);
