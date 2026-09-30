@@ -43,9 +43,9 @@ let userName = null;
 
 // Initialize Socket.IO connection
 function initSocket() {
-    // Connect to server (uses same origin as page, or localhost for development)
-    // Override with window.SERVER_URL if needed (e.g., window.SERVER_URL = 'https://your-server.com')
-    const socketUrl = window.SERVER_URL || (window.location.hostname === 'localhost' ? 'http://localhost:3000' : window.location.origin);
+    // Connect to server using current host origin
+    // For separate deployment: Set window.SERVER_URL = 'https://your-server.com'
+    const socketUrl = window.SERVER_URL || window.location.origin;
     
     console.log('Initializing Socket.IO connection...');
     console.log('Socket URL:', socketUrl);

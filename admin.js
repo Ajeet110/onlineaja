@@ -101,7 +101,7 @@ function connectAdminSocket() {
         return;
     }
     
-    const socketUrl = window.SERVER_URL || (window.location.hostname === 'localhost' ? 'http://localhost:3000' : window.location.origin);
+    const socketUrl = window.SERVER_URL || window.location.origin;
     
     console.log('Connecting to server as admin:', socketUrl);
     
