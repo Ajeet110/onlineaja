@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Connection Diagnostics - Secret Chat</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+        
+        h1 {
+            color: white;
+            text-align: center;
+            margin-bottom: 30px;
+            font-size: 2.5rem;
+        }
+        
+        .card {
+            background: white;
+            border-radius: 12px;
+            padding: 25px;
+            margin-bottom: 20px;
+            box-shadow: 0 8px 16px rgba(0,0,0,0.2);
+        }
+        
+        .card h2 {
+            color: #333;
+            margin-bottom: 15px;
+            font-size: 1.5rem;
+            border-bottom: 2px solid #667eea;
+            padding-bottom: 10px;
+        }
+        
+        .test-item {
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 8px;
+            border-left: 4px solid #ddd;
+            background: #f8f9fa;
+        }
+        
+        .test-item.pending {
+            border-left-color: #ffc107;
+            background: #fff8e1;
+        }
+        
+        .test-item.success {
+            border-left-color: #28a745;
+            background: #d4edda;
+        }
+        
+        .test-item.error {
+            border-left-color: #dc3545;
+            background: #f8d7da;
+        }
+        
+        .test-name {
+            font-weight: bold;
+            margin-bottom: 5px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .test-result {
+            font-size: 0.9rem;
+            color: #666;
+            margin-top: 5px;
+            font-family: monospace;
+        }
+        
+        .icon {
+            font-size: 1.2rem;
+        }
+        
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+        
+        .info-item {
+            padding: 12px;
+            background: #f8f9fa;
+            border-radius: 6px;
+            border-left: 3px solid #667eea;
+        }
+        
+        .info-label {
+            font-weight: bold;
+            color: #555;
+            font-size: 0.85rem;
+            margin-bottom: 5px;
+        }
+        
+        .info-value {
+            color: #333;
+            font-family: monospace;
+            word-break: break-all;
+        }
+        
+        button {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 1rem;
+            font-weight: 600;
+            transition: all 0.3s;
+            margin: 5px;
+        }
+        
+        button:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        }
+        
+        .button-group {
+            text-align: center;
+            margin-top: 20px;
+        }
+        
+        .summary {
+            text-align: center;
+            padding: 20px;
+            font-size: 1.2rem;
+            font-weight: bold;
+        }
+        
+        .summary.success {
+            color: #28a745;
+        }
+        
+        .summary.error {
+            color: #dc3545;
+        }
+        
+        pre {
+            background: #2d2d2d;
+            color: #f8f8f2;
+            padding: 15px;
+            border-radius: 6px;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 Connection Diagnostics</h1>
+        
+        <div class="card">
+            <h2>Environment Information</h2>
+            <div class="info-grid" id="env-info"></div>
+        </div>
+        
+        <div class="card">
+            <h2>Connection Tests</h2>
+            <div id="tests-container"></div>
+            <div class="button-group">
+                <button onclick="runAllTests()">▶ Run All Tests</button>
+                <button onclick="location.reload()">🔄 Reset</button>
+            </div>
+        </div>
+        
+        <div class="card">
+            <h2>Detailed Logs</h2>
+            <pre id="logs"></pre>
+        </div>
+        
+        <div class="card">
+            <h2>Recommendations</h2>
+            <div id="recommendations"></div>
+        </div>
+    </div>
+    
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <script>
+        const tests = [
+            { id: 'env', name: 'Environment Check', func: testEnvironment },
+            { id: 'url', name: 'URL Configuration', func: testURLConfig },
+            { id: 'health', name: 'Server Health Check', func: testHealth },
+            { id: 'api', name: 'API Status', func: testAPIStatus },
+            { id: 'socketio', name: 'Socket.IO Library', func: testSocketIOLibrary },
+            { id: 'connection', name: 'WebSocket Connection', func: testWebSocketConnection },
+            { id: 'events', name: 'Event Handlers', func: testEventHandlers }
+        ];
+        
+        let socket = null;
+        const logs = [];
+        
+        function log(message, type = 'info') {
+            const timestamp = new Date().toISOString().split('T')[1].split('.')[0];
+            const entry = `[${timestamp}] [${type.toUpperCase()}] ${message}`;
+            logs.push(entry);
+            document.getElementById('logs').textContent = logs.join('\n');
+        }
+        
+        function updateTest(id, status, result) {
+            const el = document.getElementById(`test-${id}`);
+            if (el) {
+                el.className = `test-item ${status}`;
+                const icon = status === 'success' ? '✓' : status === 'error' ? '✗' : '⏳';
+                el.innerHTML = `
+                    <div class="test-name">
+                        <span class="icon">${icon}</span>
+                        ${el.querySelector('.test-name').textContent.replace(/^[✓✗⏳]\s*/, '')}
+                    </div>
+                    <div class="test-result">${result}</div>
+                `;
+            }
+        }
+        
+        function showRecommendations(issues) {
+            const container = document.getElementById('recommendations');
+            if (issues.length === 0) {
+                container.innerHTML = '<p style="color: #28a745; font-weight: bold;">✓ All tests passed! No recommendations needed.</p>';
+                return;
+            }
+            
+            let html = '<ul style="list-style: none; padding: 0;">';
+            issues.forEach(issue => {
+                html += `<li style="padding: 10px; margin: 5px 0; background: #fff3cd; border-left: 4px solid #ffc107; border-radius: 4px;">
+                    <strong>${issue.test}:</strong> ${issue.recommendation}
+                </li>`;
+            });
+            html += '</ul>';
+            container.innerHTML = html;
+        }
+        
+        // Initialize
+        function init() {
+            // Display environment info
+            const envInfo = {
+                'Current URL': window.location.href,
+                'Protocol': window.location.protocol,
+                'Hostname': window.location.hostname,
+                'Port': window.location.port || '(default)',
+                'Origin': window.location.origin,
+                'User Agent': navigator.userAgent.split(' ').slice(-2).join(' ')
+            };
+            
+            let envHTML = '';
+            for (const [label, value] of Object.entries(envInfo)) {
+                envHTML += `
+                    <div class="info-item">
+                        <div class="info-label">${label}</div>
+                        <div class="info-value">${value}</div>
+                    </div>
+                `;
+            }
+            document.getElementById('env-info').innerHTML = envHTML;
+            
+            // Initialize test items
+            const container = document.getElementById('tests-container');
+            tests.forEach(test => {
+                container.innerHTML += `
+                    <div class="test-item pending" id="test-${test.id}">
+                        <div class="test-name">
+                            <span class="icon">⏳</span>
+                            ${test.name}
+                        </div>
+                        <div class="test-result">Waiting to run...</div>
+                    </div>
+                `;
+            });
+        }
+        
+        async function runAllTests() {
+            log('Starting diagnostic tests...', 'info');
+            const issues = [];
+            
+            for (const test of tests) {
+                log(`Running test: ${test.name}`, 'info');
+                try {
+                    const result = await test.func();
+                    if (result.success) {
+                        updateTest(test.id, 'success', result.message);
+                        log(`✓ ${test.name}: ${result.message}`, 'success');
+                    } else {
+                        updateTest(test.id, 'error', result.message);
+                        log(`✗ ${test.name}: ${result.message}`, 'error');
+                        issues.push({ test: test.name, recommendation: result.recommendation });
+                    }
+                } catch (error) {
+                    updateTest(test.id, 'error', error.message);
+                    log(`✗ ${test.name}: ${error.message}`, 'error');
+                    issues.push({ test: test.name, recommendation: 'Fix the error and try again' });
+                }
+            }
+            
+            showRecommendations(issues);
+            log('All tests completed', 'info');
+        }
+        
+        // Test functions
+        function testEnvironment() {
+            return new Promise((resolve) => {
+                const checks = {
+                    'Browser': typeof window !== 'undefined',
+                    'localStorage': typeof localStorage !== 'undefined',
+                    'WebSocket API': typeof WebSocket !== 'undefined'
+                };
+                
+                const allPassed = Object.values(checks).every(v => v);
+                resolve({
+                    success: allPassed,
+                    message: allPassed ? 'Environment OK' : 'Some APIs missing',
+                    recommendation: 'Try a modern browser (Chrome, Firefox, Edge)'
+                });
+            });
+        }
+        
+        function testURLConfig() {
+            return new Promise((resolve) => {
+                const serverUrl = window.SERVER_URL || (window.location.hostname === 'localhost' ? 'http://localhost:3000' : window.location.origin);
+                log(`Detected server URL: ${serverUrl}`, 'info');
+                
+                resolve({
+                    success: true,
+                    message: `Server URL: ${serverUrl}`
+                });
+            });
+        }
+        
+        async function testHealth() {
+            const serverUrl = window.SERVER_URL || (window.location.hostname === 'localhost' ? 'http://localhost:3000' : window.location.origin);
+            
+            return fetch(`${serverUrl}/health`)
+                .then(res => res.json())
+                .then(data => ({
+                    success: true,
+                    message: `Server status: ${data.status}, Active rooms: ${data.activeRooms}`
+                }))
+                .catch(error => ({
+                    success: false,
+                    message: `Cannot reach /health endpoint: ${error.message}`,
+                    recommendation: 'Make sure server is running with: npm start'
+                }));
+        }
+        
+        async function testAPIStatus() {
+            const serverUrl = window.SERVER_URL || (window.location.hostname === 'localhost' ? 'http://localhost:3000' : window.location.origin);
+            
+            return fetch(`${serverUrl}/api/status`)
+                .then(res => res.json())
+                .then(data => ({
+                    success: true,
+                    message: `API version: ${data.version}, Status: ${data.status}`
+                }))
+                .catch(error => ({
+                    success: false,
+                    message: `API endpoint failed: ${error.message}`,
+                    recommendation: 'Check server logs for errors'
+                }));
+        }
+        
+        function testSocketIOLibrary() {
+            return new Promise((resolve) => {
+                if (typeof io !== 'undefined') {
+                    resolve({
+                        success: true,
+                        message: 'Socket.IO client library loaded'
+                    });
+                } else {
+                    resolve({
+                        success: false,
+                        message: 'Socket.IO library not found',
+                        recommendation: 'Check internet connection or CDN availability'
+                    });
+                }
+            });
+        }
+        
+        function testWebSocketConnection() {
+            return new Promise((resolve) => {
+                const serverUrl = window.SERVER_URL || (window.location.hostname === 'localhost' ? 'http://localhost:3000' : window.location.origin);
+                
+                socket = io(serverUrl, {
+                    reconnection: false,
+                    timeout: 5000,
+                    transports: ['websocket', 'polling']
+                });
+                
+                socket.on('connect', () => {
+                    log(`Connected with socket ID: ${socket.id}`, 'success');
+                    resolve({
+                        success: true,
+                        message: `Connected! Socket ID: ${socket.id}`
+                    });
+                });
+                
+                socket.on('connect_error', (error) => {
+                    resolve({
+                        success: false,
+                        message: `Connection error: ${error.message}`,
+                        recommendation: 'Server may be down or URL incorrect'
+                    });
+                });
+                
+                socket.on('connect_timeout', () => {
+                    resolve({
+                        success: false,
+                        message: 'Connection timeout',
+                        recommendation: 'Check firewall or network settings'
+                    });
+                });
+            });
+        }
+        
+        function testEventHandlers() {
+            return new Promise((resolve) => {
+                if (!socket || !socket.connected) {
+                    resolve({
+                        success: false,
+                        message: 'Socket not connected',
+                        recommendation: 'Fix connection issues first'
+                    });
+                    return;
+                }
+                
+                socket.once('connection-confirmed', (data) => {
+                    resolve({
+                        success: true,
+                        message: `Event handlers working! Server time: ${data.timestamp}`
+                    });
+                });
+                
+                setTimeout(() => {
+                    resolve({
+                        success: false,
+                        message: 'No confirmation event received',
+                        recommendation: 'Server may not be sending events correctly'
+                    });
+                }, 2000);
+            });
+        }
+        
+        // Initialize on load
+        window.addEventListener('load', init);
+    </script>
+</body>
+</html>
