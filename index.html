@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Secret Chat - Encrypted Communication</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <!-- Matrix Background Effect -->
+    <canvas id="matrix-bg"></canvas>
+    
+    <div class="container">
+        <!-- Welcome Screen -->
+        <div id="welcome-screen" class="screen active">
+            <div class="logo">
+                <span class="glitch" data-text="SECRET CHAT">SECRET CHAT</span>
+            </div>
+            <p class="subtitle">Encrypted Real-Time Communication</p>
+            
+            <div class="button-group">
+                <button class="btn btn-primary" onclick="showNewChat()">
+                    <span class="btn-icon">+</span> New Chat
+                </button>
+                <button class="btn btn-secondary" onclick="showJoinChat()">
+                    <span class="btn-icon">→</span> Join Chat
+                </button>
+            </div>
+        </div>
+
+        <!-- New Chat Screen -->
+        <div id="new-chat-screen" class="screen">
+            <h2 class="screen-title">Create New Chat Room</h2>
+            <div class="input-group">
+                <label for="new-user-name">Your Name:</label>
+                <input type="text" id="new-user-name" placeholder="Enter your name..." maxlength="20">
+                <small class="hint">How others will see you in the chat</small>
+            </div>
+            <div class="input-group">
+                <label for="new-room-code">Set Room Code:</label>
+                <input type="number" id="new-room-code" placeholder="Enter numeric code only..." maxlength="10" pattern="[0-9]*">
+                <small class="hint">Use numbers only (e.g., 12345)</small>
+            </div>
+            <div class="button-group">
+                <button class="btn btn-primary" onclick="createRoom()">Create Room</button>
+                <button class="btn btn-ghost" onclick="showWelcome()">← Back</button>
+            </div>
+        </div>
+
+        <!-- Join Chat Screen -->
+        <div id="join-chat-screen" class="screen">
+            <h2 class="screen-title">Join Existing Chat</h2>
+            <div class="input-group">
+                <label for="join-user-name">Your Name:</label>
+                <input type="text" id="join-user-name" placeholder="Enter your name..." maxlength="20">
+                <small class="hint">How others will see you in the chat</small>
+            </div>
+            <div class="input-group">
+                <label for="join-room-code">Enter Room Code:</label>
+                <input type="number" id="join-room-code" placeholder="Enter numeric code only..." maxlength="10" pattern="[0-9]*">
+                <small class="hint">Get the numeric code from your contact</small>
+            </div>
+            <div class="button-group">
+                <button class="btn btn-primary" onclick="joinRoom()">Join Room</button>
+                <button class="btn btn-ghost" onclick="showWelcome()">← Back</button>
+            </div>
+        </div>
+
+        <!-- Access Denied Screen -->
+        <div id="access-denied-screen" class="screen">
+            <div class="access-denied-container">
+                <div class="denied-icon">🚫</div>
+                <h2 class="denied-title glitch" data-text="ACCESS DENIED">ACCESS DENIED</h2>
+                <div class="denied-message">
+                    <p class="denied-text">[ ERROR: ROOM NOT FOUND ]</p>
+                    <p class="denied-detail">The room code you entered does not exist or has been terminated.</p>
+                    <div class="denied-code">
+                        <span class="code-label">INVALID CODE:</span>
+                        <span class="code-value" id="denied-room-code">******</span>
+                    </div>
+                </div>
+                <div class="button-group">
+                    <button class="btn btn-primary" onclick="showWelcome()">← Return to Home</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Chat Screen -->
+        <div id="chat-screen" class="screen">
+            <div class="chat-header">
+                <div class="room-info">
+                    <span class="room-code">Room: <span id="current-room"></span></span>
+                    <div class="connection-status">
+                        <span class="status-indicator" id="status-indicator"></span>
+                        <span id="status-text">Connecting...</span>
+                    </div>
+                </div>
+                <div class="user-count">
+                    <span class="user-icon">👥</span>
+                    <span id="user-count">0</span> online
+                </div>
+                <button class="btn btn-small btn-ghost" onclick="leaveRoom()">Leave</button>
+            </div>
+
+            <div class="messages-container" id="messages-container">
+                <!-- Messages will appear here -->
+            </div>
+
+            <div class="message-input-container">
+                <button class="btn btn-media" onclick="toggleMediaMenu()" title="Share Media">
+                    <span class="media-icon">📎</span>
+                </button>
+                <input type="text" id="message-input" placeholder="Type your encrypted message..." maxlength="500">
+                <button class="btn btn-send" onclick="sendMessage()">
+                    <span class="send-icon">▶</span>
+                </button>
+            </div>
+
+            <!-- Media Menu -->
+            <div id="media-menu" class="media-menu">
+                <div class="media-option" onclick="selectFromGallery('image')">
+                    <span class="media-option-icon">🖼️</span>
+                    <span class="media-option-text">Photo from Gallery</span>
+                </div>
+                <div class="media-option" onclick="selectFromGallery('video')">
+                    <span class="media-option-icon">🎥</span>
+                    <span class="media-option-text">Video from Gallery</span>
+                </div>
+                <div class="media-option" onclick="selectFile()">
+                    <span class="media-option-icon">📄</span>
+                    <span class="media-option-text">File</span>
+                </div>
+                <div class="media-option" onclick="capturePhoto('user')">
+                    <span class="media-option-icon">🤳</span>
+                    <span class="media-option-text">Front Camera Photo</span>
+                </div>
+                <div class="media-option" onclick="capturePhoto('environment')">
+                    <span class="media-option-icon">📷</span>
+                    <span class="media-option-text">Back Camera Photo</span>
+                </div>
+                <div class="media-option" onclick="captureVideo('user')">
+                    <span class="media-option-icon">🎬</span>
+                    <span class="media-option-text">Front Camera Video</span>
+                </div>
+                <div class="media-option" onclick="captureVideo('environment')">
+                    <span class="media-option-icon">📹</span>
+                    <span class="media-option-text">Back Camera Video</span>
+                </div>
+            </div>
+
+            <!-- Hidden file inputs -->
+            <input type="file" id="image-input" accept="image/*" style="display: none;" onchange="handleFileSelect(this, 'image')">
+            <input type="file" id="video-input" accept="video/*" style="display: none;" onchange="handleFileSelect(this, 'video')">
+            <input type="file" id="file-input" style="display: none;" onchange="handleFileSelect(this, 'file')">
+
+            <!-- Camera Modal -->
+            <div id="camera-modal" class="camera-modal">
+                <div class="camera-container">
+                    <div class="camera-header">
+                        <h3 id="camera-title">Capture Photo</h3>
+                        <button class="btn-close-camera" onclick="closeCameraModal()">✕</button>
+                    </div>
+                    <div class="camera-preview">
+                        <video id="camera-preview" autoplay playsinline></video>
+                        <canvas id="camera-canvas" style="display: none;"></canvas>
+                    </div>
+                    <div class="camera-controls">
+                        <button class="btn btn-ghost" onclick="closeCameraModal()">Cancel</button>
+                        <button class="btn btn-primary" id="capture-btn" onclick="captureMedia()">
+                            <span id="capture-icon">📸</span> Capture
+                        </button>
+                        <button class="btn btn-primary" id="stop-recording-btn" onclick="stopRecording()" style="display: none;">
+                            <span>⏹️</span> Stop
+                        </button>
+                    </div>
+                    <div id="recording-indicator" class="recording-indicator" style="display: none;">
+                        <span class="recording-dot"></span> Recording...
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Socket.io CDN -->
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>

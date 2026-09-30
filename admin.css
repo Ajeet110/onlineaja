@@ -1,0 +1,621 @@
+/* Admin Panel Specific Styles */
+
+/* Admin Header */
+.admin-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px;
+    background: var(--bg-dark);
+    border: 2px solid var(--primary-color);
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+    gap: 15px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+}
+
+.admin-title {
+    flex: 1;
+}
+
+.glitch-small {
+    font-size: 1.8rem;
+    font-weight: bold;
+    text-transform: uppercase;
+    color: var(--primary-color);
+    text-shadow: 0 0 10px var(--primary-color);
+    animation: glitch 3s infinite;
+}
+
+.admin-actions {
+    display: flex;
+    gap: 10px;
+}
+
+/* Stats Grid */
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 15px;
+    margin-bottom: 20px;
+}
+
+.stat-card {
+    background: var(--bg-dark);
+    border: 2px solid var(--border-color);
+    padding: 20px;
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    transition: all 0.3s ease;
+}
+
+.stat-card:hover {
+    border-color: var(--primary-color);
+    box-shadow: var(--shadow);
+}
+
+.stat-icon {
+    font-size: 2.5rem;
+}
+
+.stat-info {
+    flex: 1;
+}
+
+.stat-label {
+    color: var(--text-dim);
+    font-size: 0.85rem;
+    margin-bottom: 5px;
+    text-transform: uppercase;
+}
+
+.stat-value {
+    color: var(--primary-color);
+    font-size: 1.8rem;
+    font-weight: bold;
+}
+
+/* Tabs */
+.admin-tabs {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 20px;
+    border-bottom: 2px solid var(--border-color);
+    flex-wrap: wrap;
+}
+
+.tab-btn {
+    padding: 15px 25px;
+    background: transparent;
+    border: none;
+    border-bottom: 3px solid transparent;
+    color: var(--text-dim);
+    font-family: 'Courier New', monospace;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.tab-btn:hover {
+    color: var(--primary-color);
+}
+
+.tab-btn.active {
+    color: var(--primary-color);
+    border-bottom-color: var(--primary-color);
+}
+
+/* Tab Content */
+.tab-content {
+    display: none;
+    animation: fadeIn 0.3s ease;
+    overflow-y: auto;
+    overflow-x: hidden;
+    max-height: calc(90vh - 400px);
+    padding-right: 5px;
+}
+
+.tab-content.active {
+    display: block;
+}
+
+/* Section Header */
+.section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    padding-bottom: 15px;
+    border-bottom: 2px solid var(--border-color);
+    flex-wrap: wrap;
+    gap: 15px;
+}
+
+.section-header h3 {
+    color: var(--primary-color);
+    margin: 0;
+    font-size: 1.3rem;
+}
+
+.filter-controls {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.filter-controls select {
+    padding: 8px 15px;
+    background: var(--bg-dark);
+    border: 2px solid var(--border-color);
+    color: var(--primary-color);
+    font-family: 'Courier New', monospace;
+    cursor: pointer;
+}
+
+.filter-controls select:focus {
+    outline: none;
+    border-color: var(--primary-color);
+}
+
+/* Rooms List */
+.rooms-list {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    overflow-y: auto;
+    overflow-x: hidden;
+    max-height: calc(90vh - 450px);
+    padding-right: 5px;
+}
+
+.rooms-list::-webkit-scrollbar {
+    width: 8px;
+}
+
+.rooms-list::-webkit-scrollbar-track {
+    background: var(--bg-darker);
+}
+
+.rooms-list::-webkit-scrollbar-thumb {
+    background: var(--primary-color);
+    border-radius: 4px;
+}
+
+.room-card {
+    background: var(--bg-dark);
+    border: 2px solid var(--border-color);
+    padding: 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 15px;
+    transition: all 0.3s ease;
+    flex-wrap: wrap;
+}
+
+.room-card:hover {
+    border-color: var(--primary-color);
+}
+
+.room-info-section {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.room-code-display {
+    color: var(--primary-color);
+    font-size: 1.3rem;
+    font-weight: bold;
+}
+
+.room-meta {
+    display: flex;
+    gap: 20px;
+    flex-wrap: wrap;
+}
+
+.room-meta-item {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    color: var(--text-dim);
+    font-size: 0.9rem;
+}
+
+.room-actions {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+/* Messages Log */
+.messages-log {
+    background: var(--bg-dark);
+    border: 2px solid var(--border-color);
+    padding: 15px;
+    max-height: 500px;
+    overflow-y: auto;
+}
+
+.log-entry {
+    padding: 12px;
+    border-left: 3px solid var(--primary-color);
+    background: rgba(0, 255, 65, 0.05);
+    margin-bottom: 10px;
+    font-size: 0.9rem;
+}
+
+.log-header {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 5px;
+    color: var(--text-dim);
+    font-size: 0.8rem;
+}
+
+.log-room {
+    color: var(--primary-color);
+    font-weight: bold;
+}
+
+.log-user {
+    color: var(--secondary-color);
+}
+
+.log-content {
+    color: var(--primary-color);
+    word-wrap: break-word;
+}
+
+.log-media {
+    color: var(--text-dim);
+    font-style: italic;
+}
+
+/* Settings Panel */
+.settings-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    overflow-y: auto;
+    overflow-x: hidden;
+    max-height: calc(90vh - 450px);
+    padding-right: 5px;
+}
+
+.settings-panel::-webkit-scrollbar {
+    width: 8px;
+}
+
+.settings-panel::-webkit-scrollbar-track {
+    background: var(--bg-darker);
+}
+
+.settings-panel::-webkit-scrollbar-thumb {
+    background: var(--primary-color);
+    border-radius: 4px;
+}
+
+.setting-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px;
+    background: var(--bg-dark);
+    border: 2px solid var(--border-color);
+    gap: 20px;
+}
+
+.setting-info {
+    flex: 1;
+}
+
+.setting-label {
+    display: block;
+    color: var(--primary-color);
+    font-size: 1rem;
+    margin-bottom: 5px;
+    font-weight: bold;
+}
+
+.setting-hint {
+    display: block;
+    color: var(--text-dim);
+    font-size: 0.85rem;
+}
+
+/* Toggle Switch */
+.toggle-switch {
+    position: relative;
+    display: inline-block;
+    width: 60px;
+    height: 30px;
+}
+
+.toggle-switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.toggle-slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: var(--bg-darker);
+    border: 2px solid var(--border-color);
+    transition: 0.3s;
+    border-radius: 30px;
+}
+
+.toggle-slider:before {
+    position: absolute;
+    content: "";
+    height: 20px;
+    width: 20px;
+    left: 3px;
+    bottom: 3px;
+    background-color: var(--text-dim);
+    transition: 0.3s;
+    border-radius: 50%;
+}
+
+.toggle-switch input:checked + .toggle-slider {
+    background-color: var(--secondary-color);
+    border-color: var(--primary-color);
+}
+
+.toggle-switch input:checked + .toggle-slider:before {
+    transform: translateX(30px);
+    background-color: var(--primary-color);
+}
+
+/* Empty State */
+.empty-state {
+    text-align: center;
+    padding: 40px;
+    color: var(--text-dim);
+    font-size: 1.1rem;
+}
+
+/* Confirm Dialog */
+.confirm-dialog {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.9);
+    display: none;
+    justify-content: center;
+    align-items: center;
+    z-index: 3000;
+    animation: fadeIn 0.3s ease;
+}
+
+.confirm-dialog.active {
+    display: flex;
+}
+
+.confirm-content {
+    background: var(--bg-dark);
+    border: 2px solid var(--primary-color);
+    padding: 30px;
+    max-width: 400px;
+    width: 90%;
+    box-shadow: 0 0 40px rgba(0, 255, 65, 0.5);
+}
+
+.confirm-content h3 {
+    color: var(--primary-color);
+    margin: 0 0 15px 0;
+    font-size: 1.3rem;
+}
+
+.confirm-content p {
+    color: var(--text-dim);
+    margin-bottom: 25px;
+    line-height: 1.6;
+}
+
+.confirm-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+}
+
+/* Scrollbar */
+.messages-log::-webkit-scrollbar {
+    width: 8px;
+}
+
+.messages-log::-webkit-scrollbar-track {
+    background: var(--bg-darker);
+}
+
+.messages-log::-webkit-scrollbar-thumb {
+    background: var(--primary-color);
+    border-radius: 4px;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .stats-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .admin-header {
+        flex-direction: column;
+        align-items: flex-start;
+        position: static;
+    }
+    
+    .room-card {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    
+    .setting-item {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    
+    .tab-content {
+        max-height: calc(100vh - 500px);
+    }
+    
+    .rooms-list {
+        max-height: calc(100vh - 550px);
+    }
+    
+    .messages-log {
+        max-height: calc(100vh - 550px);
+    }
+    
+    .settings-panel {
+        max-height: calc(100vh - 550px);
+    }
+    
+    .container {
+        padding: 10px;
+        overflow-y: auto;
+    }
+    
+    #chat-screen {
+        height: 95vh;
+        max-height: 95vh;
+    }
+    
+    .messages-container {
+        max-height: calc(95vh - 250px);
+    }
+}
+
+/* Status Badge */
+.status-badge {
+    display: inline-block;
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 0.8rem;
+    font-weight: bold;
+    text-transform: uppercase;
+}
+
+.status-online {
+    background: rgba(0, 255, 65, 0.2);
+    color: var(--primary-color);
+    border: 1px solid var(--primary-color);
+}
+
+.status-offline {
+    background: rgba(255, 0, 64, 0.2);
+    color: var(--error-color);
+    border: 1px solid var(--error-color);
+}
+
+/* Additional Scrolling Support for Large Content */
+
+/* Ensure admin tabs scroll properly */
+.admin-tabs {
+    overflow-x: auto;
+    overflow-y: hidden;
+    white-space: nowrap;
+    -webkit-overflow-scrolling: touch;
+}
+
+.admin-tabs::-webkit-scrollbar {
+    height: 5px;
+}
+
+/* Log entry wrapping */
+.log-entry {
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+}
+
+/* Room card overflow handling */
+.room-card {
+    overflow: hidden;
+}
+
+.room-code-display {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* Stats grid responsive scrolling */
+.stats-grid {
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+}
+
+/* Filter controls wrapping */
+.filter-controls {
+    overflow-x: auto;
+    white-space: nowrap;
+    -webkit-overflow-scrolling: touch;
+}
+
+/* Empty state centering */
+.empty-state {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 200px;
+}
+
+/* Smooth scrolling for all containers */
+.tab-content,
+.rooms-list,
+.messages-log,
+.settings-panel,
+#admin-dashboard-screen,
+.messages-container,
+.container {
+    scroll-behavior: smooth;
+    -webkit-overflow-scrolling: touch;
+}
+
+/* Additional mobile optimizations */
+@media (max-width: 480px) {
+    .stats-grid {
+        grid-template-columns: 1fr;
+        overflow-x: visible;
+    }
+    
+    .admin-tabs {
+        overflow-x: scroll;
+        padding-bottom: 5px;
+    }
+    
+    .tab-content,
+    .rooms-list,
+    .messages-log,
+    .settings-panel {
+        max-height: calc(100vh - 600px);
+    }
+    
+    .messages-container {
+        max-height: calc(100vh - 350px);
+    }
+}
+
+/* Tablet optimizations */
+@media (min-width: 769px) and (max-width: 1024px) {
+    .tab-content,
+    .rooms-list,
+    .messages-log,
+    .settings-panel {
+        max-height: calc(90vh - 400px);
+    }
+}

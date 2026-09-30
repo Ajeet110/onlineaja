@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Secret Chat - Admin Panel</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="admin.css">
+</head>
+<body>
+    <!-- Matrix Background Effect -->
+    <canvas id="matrix-bg"></canvas>
+    
+    <div class="container">
+        <!-- Admin Login Screen -->
+        <div id="admin-login-screen" class="screen active">
+            <div class="logo">
+                <span class="glitch" data-text="ADMIN PANEL">ADMIN PANEL</span>
+            </div>
+            <p class="subtitle">Authorized Access Only</p>
+            
+            <div class="input-group">
+                <label for="admin-password">🔐 Administrator Password:</label>
+                <input type="password" id="admin-password" placeholder="Enter admin password..." maxlength="50">
+                <small class="hint">Enter the master password to access admin controls</small>
+            </div>
+            
+            <div class="button-group">
+                <button class="btn btn-primary" onclick="adminLogin()">
+                    <span class="btn-icon">🔓</span> Access Panel
+                </button>
+                <button class="btn btn-ghost" onclick="window.location.href='index.html'">
+                    ← Back to Chat
+                </button>
+            </div>
+        </div>
+
+        <!-- Admin Dashboard Screen -->
+        <div id="admin-dashboard-screen" class="screen">
+            <div class="admin-header">
+                <div class="admin-title">
+                    <span class="glitch-small">ADMIN CONTROL CENTER</span>
+                </div>
+                <div class="admin-actions">
+                    <button class="btn btn-small btn-ghost" onclick="refreshDashboard()">
+                        🔄 Refresh
+                    </button>
+                    <button class="btn btn-small btn-ghost" onclick="adminLogout()">
+                        🚪 Logout
+                    </button>
+                </div>
+            </div>
+
+            <!-- Stats Cards -->
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-icon">🏠</div>
+                    <div class="stat-info">
+                        <div class="stat-label">Active Rooms</div>
+                        <div class="stat-value" id="total-rooms">0</div>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon">👥</div>
+                    <div class="stat-info">
+                        <div class="stat-label">Total Users Online</div>
+                        <div class="stat-value" id="total-users">0</div>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon">💬</div>
+                    <div class="stat-info">
+                        <div class="stat-label">Messages Today</div>
+                        <div class="stat-value" id="total-messages">0</div>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon">📊</div>
+                    <div class="stat-info">
+                        <div class="stat-label">Server Status</div>
+                        <div class="stat-value" id="server-status">Online</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tabs -->
+            <div class="admin-tabs">
+                <button class="tab-btn active" onclick="switchTab('rooms')">
+                    🏠 Active Rooms
+                </button>
+                <button class="tab-btn" onclick="switchTab('messages')">
+                    💬 Message Logs
+                </button>
+                <button class="tab-btn" onclick="switchTab('settings')">
+                    ⚙️ Settings
+                </button>
+            </div>
+
+            <!-- Rooms Tab -->
+            <div id="rooms-tab" class="tab-content active">
+                <div class="section-header">
+                    <h3>Active Chat Rooms</h3>
+                    <button class="btn btn-small" onclick="dismantleAllRooms()">
+                        🗑️ Dismantle All
+                    </button>
+                </div>
+                <div class="rooms-list" id="rooms-list">
+                    <div class="empty-state">No active rooms</div>
+                </div>
+            </div>
+
+            <!-- Messages Tab -->
+            <div id="messages-tab" class="tab-content">
+                <div class="section-header">
+                    <h3>Message Logs</h3>
+                    <div class="filter-controls">
+                        <select id="room-filter" onchange="filterMessages()">
+                            <option value="all">All Rooms</option>
+                        </select>
+                        <button class="btn btn-small" onclick="clearMessageLogs()">
+                            🗑️ Clear Logs
+                        </button>
+                        <button class="btn btn-small" onclick="exportLogs()">
+                            📥 Export
+                        </button>
+                    </div>
+                </div>
+                <div class="messages-log" id="messages-log">
+                    <div class="empty-state">No messages logged</div>
+                </div>
+            </div>
+
+            <!-- Settings Tab -->
+            <div id="settings-tab" class="tab-content">
+                <div class="section-header">
+                    <h3>Admin Settings</h3>
+                </div>
+                <div class="settings-panel">
+                    <div class="setting-item">
+                        <div class="setting-info">
+                            <label class="setting-label">Auto-cleanup at Midnight</label>
+                            <small class="setting-hint">Automatically dismantle all rooms at 00:00</small>
+                        </div>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="auto-cleanup" checked>
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                    <div class="setting-item">
+                        <div class="setting-info">
+                            <label class="setting-label">Log Messages</label>
+                            <small class="setting-hint">Store message history for admin review</small>
+                        </div>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="log-messages" checked>
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                    <div class="setting-item">
+                        <div class="setting-info">
+                            <label class="setting-label">Real-time Monitoring</label>
+                            <small class="setting-hint">Auto-refresh dashboard every 5 seconds</small>
+                        </div>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="auto-refresh" checked onchange="toggleAutoRefresh()">
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                    <div class="setting-item">
+                        <div class="setting-info">
+                            <label class="setting-label">Change Admin Password</label>
+                            <small class="setting-hint">Update the master admin password</small>
+                        </div>
+                        <button class="btn btn-small" onclick="changeAdminPassword()">
+                            🔑 Change Password
+                        </button>
+                    </div>
+                    <div class="setting-item">
+                        <div class="setting-info">
+                            <label class="setting-label">Server Information</label>
+                            <small class="setting-hint" id="server-info">Loading...</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Confirm Dialog -->
+    <div id="confirm-dialog" class="confirm-dialog">
+        <div class="confirm-content">
+            <h3 id="confirm-title">Confirm Action</h3>
+            <p id="confirm-message">Are you sure?</p>
+            <div class="confirm-actions">
+                <button class="btn btn-ghost" onclick="closeConfirmDialog()">Cancel</button>
+                <button class="btn btn-primary" id="confirm-btn" onclick="confirmAction()">Confirm</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Socket.io CDN -->
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <script src="script.js"></script>
+    <script src="admin.js"></script>
+</body>
+</html>
