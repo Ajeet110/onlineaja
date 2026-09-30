@@ -1,7 +1,7 @@
 // Admin Panel JavaScript
 
-// Admin credentials (in production, use server-side authentication)
-const ADMIN_PASSWORD = 'admin123'; // Change this to a secure password
+// Admin authentication is handled server-side
+// No password stored client-side for security
 let adminSocket = null;
 let isAdminAuthenticated = false;
 let autoRefreshInterval = null;
@@ -46,27 +46,14 @@ function adminLogin() {
         return;
     }
     
-    if (password !== ADMIN_PASSWORD) {
-        showAdminError('Invalid password. Access denied.');
-        passwordInput.value = '';
-        passwordInput.focus();
-        return;
-    }
+    console.log('Attempting admin login...');
     
-    console.log('Password validated, logging in...');
-    
-    // Authenticate
-    isAdminAuthenticated = true;
-    sessionStorage.setItem('adminAuth', 'authenticated');
-    
-    // Clear password field
+    // Clear password field immediately for security
     passwordInput.value = '';
     
-    // Connect to server with admin privileges
-    connectAdminSocket();
-    
-    // Show dashboard
-    showDashboard();
+    // Connect to server with provided password
+    // Server will validate the password
+    connectAdminSocket(password);
 }
 
 // Admin Logout
@@ -94,11 +81,11 @@ function adminLogout() {
     );
 }
 
-// Connect to server as admin
-function connectAdminSocket() {
+// Connect to server as admin with provided password
+function connectAdminSocket(password) {
     if (adminSocket && adminSocket.connected) {
         console.log('Admin socket already connected');
-        return;
+        adminSocket.disconnect();
     }
     
     const socketUrl = window.SERVER_URL || window.location.origin;
@@ -106,18 +93,16 @@ function connectAdminSocket() {
     console.log('Connecting to server as admin:', socketUrl);
     
     adminSocket = io(socketUrl, {
-        reconnection: true,
-        reconnectionDelay: 1000,
-        reconnectionAttempts: 5,
-        timeout: 10000,
+        reconnection: false, // No reconnection for admin - requires fresh auth
+        timeout: 15000,
         transports: ['websocket', 'polling']
     });
     
     adminSocket.on('connect', () => {
         console.log('✓ Admin connected to server');
         console.log('Admin socket ID:', adminSocket.id);
-        // Register as admin
-        adminSocket.emit('admin-auth', { password: ADMIN_PASSWORD });
+        // Send admin authentication with provided password
+        adminSocket.emit('admin-auth', { password: password });
     });
     
     adminSocket.on('connection-confirmed', (data) => {
@@ -137,7 +122,9 @@ function connectAdminSocket() {
     });
     
     adminSocket.on('admin-authenticated', () => {
-        console.log('Admin authentication successful');
+        console.log('✓ Admin authentication successful');
+        isAdminAuthenticated = true;
+        showDashboard();
         loadDashboardData();
     });
     

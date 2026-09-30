@@ -9,25 +9,79 @@ const cors = require('cors');
 const app = express();
 const server = http.createServer(app);
 
-// Configure CORS for GitHub Pages
+// Configure CORS with production-safe defaults
+const getAllowedOrigins = () => {
+    if (process.env.NODE_ENV === 'production') {
+        const allowed = process.env.ALLOWED_ORIGINS || '';
+        const origins = allowed.split(',').filter(Boolean);
+        
+        // If no origins specified in production, allow same-origin by returning undefined
+        // This is safer than blocking all connections
+        if (origins.length === 0) {
+            console.warn('⚠️ ALLOWED_ORIGINS not set in production');
+            console.warn('Allowing same-origin connections only (Socket.IO default)');
+            return undefined;  // Socket.IO will use same-origin policy
+        }
+        return origins;
+    }
+    return ['http://localhost:3000', 'http://localhost:5173', 'http://localhost:8080'];
+};
+
 const io = socketIO(server, {
     cors: {
-        origin: "*", // Allow all origins (restrict this in production)
-        methods: ["GET", "POST"]
+        origin: getAllowedOrigins(),
+        methods: ["GET", "POST"],
+        credentials: true
     }
 });
 
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '10mb' }));
 
-// Serve static files from root directory
-app.use(express.static(__dirname));
+// Security middleware for production
+if (process.env.NODE_ENV === 'production') {
+    // Basic security headers
+    app.use((req, res, next) => {
+        res.setHeader('X-Content-Type-Options', 'nosniff');
+        res.setHeader('X-Frame-Options', 'DENY');
+        res.setHeader('X-XSS-Protection', '1; mode=block');
+        next();
+    });
+    
+    // Require HTTPS in production
+    app.use((req, res, next) => {
+        if (req.headers['x-forwarded-proto'] !== 'https' && 
+            !req.headers['host'].startsWith('localhost') &&
+            !req.headers['host'].startsWith('127.0.0.1')) {
+            return res.status(403).json({ error: 'HTTPS required in production' });
+        }
+        next();
+    });
+}
+
+// Serve static files from root directory with improved settings
+app.use(express.static(__dirname, {
+    setHeaders: (res, path) => {
+        // Cache static assets
+        if (path.match(/\.(js|css|png|jpg|jpeg|gif|ico|woff|woff2|ttf|eot|svg)$/)) {
+            res.setHeader('Cache-Control', 'public, max-age=86400'); // 24 hours
+        }
+    }
+}));
 
 // Store room information with creation timestamps
 const rooms = new Map(); // Map<roomCode, Set<socketId>>
 const roomMetadata = new Map(); // Map<roomCode, { createdAt: timestamp }>
 const messageLogs = []; // Store message logs for admin
-let ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'admin123'; // Can be changed via admin panel
+// Validate admin password for production
+let ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'admin123';
+
+if (process.env.NODE_ENV === 'production' && ADMIN_PASSWORD === 'admin123') {
+    console.error('⚠️ WARNING: Using default admin password in production is insecure!');
+    console.error('Please set ADMIN_PASSWORD environment variable to a secure value.');
+    console.error('Server will start but this is NOT recommended for production.');
+}
+
 const serverStartTime = new Date();
 
 // Cleanup rooms daily at midnight
@@ -91,11 +145,28 @@ app.get('/api/status', (req, res) => {
     });
 });
 
+// Socket.IO connection validation middleware
+io.use((socket, next) => {
+    const origin = socket.handshake.headers.origin;
+    const allowedOrigins = getAllowedOrigins();
+    
+    // In production, validate origin
+    if (process.env.NODE_ENV === 'production' && origin && allowedOrigins.length > 0) {
+        if (!allowedOrigins.includes(origin)) {
+            console.error(`Blocked connection from unauthorized origin: ${origin}`);
+            return next(new Error('Unauthorized origin'));
+        }
+    }
+    
+    next();
+});
+
 // Socket.IO connection handling
 io.on('connection', (socket) => {
     console.log('New client connected:', socket.id);
     console.log('Client address:', socket.handshake.address);
-    console.log('Client headers:', socket.handshake.headers.origin || 'No origin');
+    console.log('Client origin:', socket.handshake.headers.origin || 'No origin');
+    console.log('User agent:', socket.handshake.headers['user-agent'] || 'Unknown');
     
     // Send connection confirmation
     socket.emit('connection-confirmed', {
