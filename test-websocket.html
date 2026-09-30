@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebSocket Connection Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .test-card {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .status {
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+            font-weight: bold;
+        }
+        .online {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .offline {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        pre {
+            background-color: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 4px;
+            padding: 15px;
+            overflow: auto;
+            max-height: 300px;
+        }
+        h1 {
+            color: #333;
+        }
+    </style>
+    <script src="/socket.io/socket.io.js"></script>
+</head>
+<body>
+    <h1>WebSocket Connection Test</h1>
+    
+    <div class="test-card">
+        <h3>Connection Status</h3>
+        <div id="connection-status" class="status offline">Disconnected</div>
+        <button onclick="testWebSocket()">Test WebSocket Connection</button>
+        <button onclick="testAdminLogin()">Test Admin Login</button>
+        <button onclick="clearLogs()">Clear Logs</button>
+    </div>
+    
+    <div class="test-card">
+        <h3>Configuration</h3>
+        <p>Current URL: <span id="current-url"></span></p>
+        <p>Server URL: <span id="server-url"></span></p>
+        <p>window.location.origin: <span id="location-origin"></span></p>
+    </div>
+    
+    <div class="test-card">
+        <h3>Test Logs</h3>
+        <pre id="logs"></pre>
+    </div>
+    
+    <script>
+        let socket = null;
+        const logsElement = document.getElementById('logs');
+        
+        // Update configuration display
+        document.getElementById('current-url').textContent = window.location.href;
+        document.getElementById('server-url').textContent = window.SERVER_URL || '(not set)';
+        document.getElementById('location-origin').textContent = window.location.origin;
+        
+        function log(message) {
+            const timestamp = new Date().toISOString().split('T')[1].split('.')[0];
+            logsElement.textContent += `[${timestamp}] ${message}\n`;
+            logsElement.scrollTop = logsElement.scrollHeight;
+        }
+        
+        function clearLogs() {
+            logsElement.textContent = '';
+        }
+        
+        function updateStatus(connected) {
+            const statusElement = document.getElementById('connection-status');
+            if (connected) {
+                statusElement.textContent = 'Connected';
+                statusElement.className = 'status online';
+            } else {
+                statusElement.textContent = 'Disconnected';
+                statusElement.className = 'status offline';
+            }
+        }
+        
+        function testWebSocket() {
+            // Use same logic as app
+            const socketUrl = window.SERVER_URL || (window.location.hostname === 'localhost' ? 'http://localhost:3000' : window.location.origin);
+            
+            log(`Connecting to: ${socketUrl}`);
+            
+            if (socket) {
+                socket.disconnect();
+                socket = null;
+            }
+            
+            socket = io(socketUrl, {
+                reconnection: true,
+                reconnectionDelay: 1000,
+                reconnectionAttempts: 3
+            });
+            
+            socket.on('connect', () => {
+                log('✓ WebSocket connection established');
+                updateStatus(true);
+            });
+            
+            socket.on('disconnect', () => {
+                log('✗ WebSocket disconnected');
+                updateStatus(false);
+            });
+            
+            socket.on('error', (error) => {
+                log(`✗ WebSocket error: ${error.message || JSON.stringify(error)}`);
+                updateStatus(false);
+            });
+            
+            // Test if we can reach the server
+            setTimeout(() => {
+                if (!socket.connected) {
+                    log('✗ Connection timeout - server may not be running');
+                    updateStatus(false);
+                }
+            }, 3000);
+        }
+        
+        function testAdminLogin() {
+            if (!socket || !socket.connected) {
+                log('✗ Not connected to server');
+                return;
+            }
+            
+            log('Testing admin login with password "admin123"...');
+            
+            // Set up response handlers
+            socket.once('admin-authenticated', () => {
+                log('✓ Admin authentication successful');
+            });
+            
+            socket.once('error', (error) => {
+                log(`✗ Admin authentication error: ${error.message || 'Invalid password'}`);
+            });
+            
+            // Send authentication request
+            socket.emit('admin-auth', { password: 'admin123' });
+        }
+        
+        // Auto-test on page load
+        window.addEventListener('load', () => {
+            setTimeout(testWebSocket, 1000);
+        });
+    </script>
+</body>
+</html>
