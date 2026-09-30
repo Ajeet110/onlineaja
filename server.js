@@ -20,11 +20,8 @@ const io = socketIO(server, {
 app.use(cors());
 app.use(express.json());
 
-// Serve static files from root directory (except root path)
-// This allows Socket.IO to work properly
-app.use(express.static(__dirname, {
-    index: false  // Don't serve index.html automatically
-}));
+// Serve static files from root directory
+app.use(express.static(__dirname));
 
 // Store room information with creation timestamps
 const rooms = new Map(); // Map<roomCode, Set<socketId>>
@@ -73,11 +70,6 @@ function cleanupAllRooms() {
 
 // Start the cleanup scheduler
 scheduleRoomCleanup();
-
-// Serve index.html at root
-app.get('/', (req, res) => {
-    res.sendFile(__dirname + '/index.html');
-});
 
 // Health check endpoint
 app.get('/health', (req, res) => {
