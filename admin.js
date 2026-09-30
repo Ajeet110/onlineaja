@@ -108,13 +108,32 @@ function connectAdminSocket() {
     adminSocket = io(socketUrl, {
         reconnection: true,
         reconnectionDelay: 1000,
-        reconnectionAttempts: 5
+        reconnectionAttempts: 5,
+        timeout: 10000,
+        transports: ['websocket', 'polling']
     });
     
     adminSocket.on('connect', () => {
-        console.log('Admin connected to server');
+        console.log('✓ Admin connected to server');
+        console.log('Admin socket ID:', adminSocket.id);
         // Register as admin
         adminSocket.emit('admin-auth', { password: ADMIN_PASSWORD });
+    });
+    
+    adminSocket.on('connection-confirmed', (data) => {
+        console.log('✓ Admin connection confirmed:', data);
+    });
+    
+    adminSocket.on('connect_error', (error) => {
+        console.error('✗ Admin connection error:', error.message);
+        updateStats({ totalRooms: 0, totalUsers: 0, serverOnline: false });
+        showAdminError('Connection error: ' + error.message);
+    });
+    
+    adminSocket.on('connect_timeout', () => {
+        console.error('✗ Admin connection timeout');
+        updateStats({ totalRooms: 0, totalUsers: 0, serverOnline: false });
+        showAdminError('Connection timeout');
     });
     
     adminSocket.on('admin-authenticated', () => {

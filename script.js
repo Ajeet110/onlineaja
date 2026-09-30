@@ -47,21 +47,60 @@ function initSocket() {
     // Override with window.SERVER_URL if needed (e.g., window.SERVER_URL = 'https://your-server.com')
     const socketUrl = window.SERVER_URL || (window.location.hostname === 'localhost' ? 'http://localhost:3000' : window.location.origin);
     
+    console.log('Initializing Socket.IO connection...');
+    console.log('Socket URL:', socketUrl);
+    console.log('Current location:', window.location.href);
+    
     try {
         socket = io(socketUrl, {
             reconnection: true,
             reconnectionDelay: 1000,
-            reconnectionAttempts: 5
+            reconnectionAttempts: 5,
+            timeout: 10000,
+            transports: ['websocket', 'polling']  // Try WebSocket first, fallback to polling
         });
         
         socket.on('connect', () => {
-            console.log('Connected to server');
+            console.log('✓ Connected to server');
+            console.log('Socket ID:', socket.id);
             updateConnectionStatus(true);
         });
         
-        socket.on('disconnect', () => {
-            console.log('Disconnected from server');
+        socket.on('connection-confirmed', (data) => {
+            console.log('✓ Connection confirmed by server:', data);
+        });
+        
+        socket.on('connect_error', (error) => {
+            console.error('✗ Connection error:', error.message);
+            console.error('Error details:', error);
             updateConnectionStatus(false);
+            showError('Connection error: ' + error.message);
+        });
+        
+        socket.on('connect_timeout', () => {
+            console.error('✗ Connection timeout');
+            updateConnectionStatus(false);
+            showError('Connection timeout. Server may be unreachable.');
+        });
+        
+        socket.on('reconnect_attempt', (attemptNumber) => {
+            console.log(`Reconnection attempt ${attemptNumber}...`);
+        });
+        
+        socket.on('reconnect_failed', () => {
+            console.error('✗ Reconnection failed after all attempts');
+            updateConnectionStatus(false);
+            showError('Failed to reconnect to server.');
+        });
+        
+        socket.on('disconnect', (reason) => {
+            console.log('Disconnected from server. Reason:', reason);
+            updateConnectionStatus(false);
+            
+            if (reason === 'io server disconnect') {
+                // Server disconnected, try to reconnect
+                socket.connect();
+            }
         });
         
         socket.on('room-created', (data) => {

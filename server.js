@@ -20,8 +20,11 @@ const io = socketIO(server, {
 app.use(cors());
 app.use(express.json());
 
-// Serve static files from root directory
-app.use(express.static(__dirname));
+// Serve static files from root directory (except root path)
+// This allows Socket.IO to work properly
+app.use(express.static(__dirname, {
+    index: false  // Don't serve index.html automatically
+}));
 
 // Store room information with creation timestamps
 const rooms = new Map(); // Map<roomCode, Set<socketId>>
@@ -71,10 +74,26 @@ function cleanupAllRooms() {
 // Start the cleanup scheduler
 scheduleRoomCleanup();
 
-// Health check endpoint
+// Serve index.html at root
 app.get('/', (req, res) => {
+    res.sendFile(__dirname + '/index.html');
+});
+
+// Health check endpoint
+app.get('/health', (req, res) => {
     res.json({ 
         status: 'running', 
+        activeRooms: rooms.size,
+        timestamp: new Date().toISOString()
+    });
+});
+
+// API status endpoint for connection testing
+app.get('/api/status', (req, res) => {
+    res.json({ 
+        status: 'ok',
+        server: 'Secret Chat Server',
+        version: '1.0.0',
         activeRooms: rooms.size,
         timestamp: new Date().toISOString()
     });
@@ -83,6 +102,14 @@ app.get('/', (req, res) => {
 // Socket.IO connection handling
 io.on('connection', (socket) => {
     console.log('New client connected:', socket.id);
+    console.log('Client address:', socket.handshake.address);
+    console.log('Client headers:', socket.handshake.headers.origin || 'No origin');
+    
+    // Send connection confirmation
+    socket.emit('connection-confirmed', {
+        socketId: socket.id,
+        timestamp: new Date().toISOString()
+    });
     
     // Create new room
     socket.on('create-room', ({ room, userId, userName }) => {
@@ -415,6 +442,7 @@ io.on('connection', (socket) => {
 });
 
 const PORT = process.env.PORT || 3000;
+const HOST = process.env.HOST || '0.0.0.0';
 
 // Helper function to format uptime
 function formatUptime(seconds) {
@@ -427,7 +455,20 @@ function formatUptime(seconds) {
     return `${minutes}m`;
 }
 
-server.listen(PORT, () => {
-    console.log(`Secret Chat Server running on port ${PORT}`);
+server.listen(PORT, HOST, () => {
+    console.log(`Secret Chat Server running on ${HOST}:${PORT}`);
     console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
+    console.log(`Access URLs:`);
+    console.log(`  Local: http://localhost:${PORT}`);
+    console.log(`  Network: http://0.0.0.0:${PORT}`);
+    console.log(`Socket.IO path: /socket.io`);
+});
+
+// Handle server errors
+server.on('error', (error) => {
+    console.error('Server error:', error);
+    if (error.code === 'EADDRINUSE') {
+        console.error(`Port ${PORT} is already in use. Please choose a different port.`);
+        process.exit(1);
+    }
 });
