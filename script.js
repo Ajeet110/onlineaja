@@ -49,7 +49,7 @@ function initSocket() {
     console.log('═══════════════════════════════════════════');
     console.log('🔌 WebSocket Connection Configuration');
     console.log('═══════════════════════════════════════════');
-    console.log('Script Version: 2024-09-30-v3');
+    console.log('Script Version: 2024-09-30-v4-chat-only');
     console.log('Socket URL:', socketUrl);
     console.log('Current location:', window.location.href);
     console.log('window.SERVER_URL:', window.SERVER_URL || 'not set');
@@ -61,7 +61,7 @@ function initSocket() {
             reconnectionDelay: 1000,
             reconnectionAttempts: 5,
             timeout: 10000,
-            transports: ['websocket', 'polling']  // Try WebSocket first, fallback to polling
+            transports: ['websocket', 'polling']
         });
         
         socket.on('connect', () => {
@@ -102,7 +102,6 @@ function initSocket() {
             updateConnectionStatus(false);
             
             if (reason === 'io server disconnect') {
-                // Server disconnected, try to reconnect
                 socket.connect();
             }
         });
@@ -166,110 +165,8 @@ function initSocket() {
             showError('Connection error. Please try again.');
         });
         
-        // ==================== WEBRTC SOCKET LISTENERS ====================
-        
-        // Handle Incoming Call
-        socket.on('call-incoming', (data) => {
-            console.log('Incoming call:', data);
-            incomingCallData = data;
-            
-            // Show incoming call UI
-            const modal = document.getElementById('incoming-call-modal');
-            const fromName = document.getElementById('incoming-call-from');
-            const callType = document.getElementById('incoming-call-type');
-            
-            fromName.textContent = `${data.fromName || 'Someone'} is calling`;
-            callType.textContent = data.callType === 'video' ? 'Video Call' : 'Voice Call';
-            
-            modal.classList.add('active');
-            
-            // Play ringtone (optional)
-            playRingtone();
-        });
-        
-        // Handle Call Ended by Others
-        socket.on('call-ended', (data) => {
-            console.log('Call ended:', data);
-            endCall();
-            
-            if (data.reason) {
-                showError('Call ended: ' + data.reason.replace('-', ' '));
-            } else {
-                addSystemMessage('Call ended');
-            }
-        });
-        
-        // Call Answered by Someone
-        socket.on('call-answered', (data) => {
-            console.log('Call answered by:', data.byName);
-            updateCallStatus('Connected');
-            addSystemMessage(`${data.byName} joined the call`);
-        });
-        
-        // Handle WebRTC Signaling
-        socket.on('webrtc-offer', async (data) => {
-            console.log('Received WebRTC offer');
-            
-            if (!peerConnection) {
-                peerConnection = new RTCPeerConnection(rtcConfiguration);
-                
-                localStream.getTracks().forEach(track => {
-                    peerConnection.addTrack(track, localStream);
-                });
-                
-                peerConnection.ontrack = (event) => {
-                    const remoteVideo = document.getElementById('remote-video');
-                    if (remoteVideo && event.streams[0]) {
-                        remoteVideo.srcObject = event.streams[0];
-                    }
-                };
-                
-                peerConnection.onicecandidate = (event) => {
-                    if (event.candidate) {
-                        socket.emit('webrtc-ice-candidate', {
-                            to: data.from,
-                            candidate: event.candidate,
-                            callId: data.callId
-                        });
-                    }
-                };
-            }
-            
-            await peerConnection.setRemoteDescription(new RTCSessionDescription(data.offer));
-            const answer = await peerConnection.createAnswer();
-            await peerConnection.setLocalDescription(answer);
-            
-            socket.emit('webrtc-answer', {
-                to: data.from,
-                answer: answer,
-                callId: data.callId
-            });
-        });
-        
-        socket.on('webrtc-answer', async (data) => {
-            console.log('Received WebRTC answer');
-            await peerConnection.setRemoteDescription(new RTCSessionDescription(data.answer));
-            updateCallStatus('Connected');
-        });
-        
-        socket.on('webrtc-ice-candidate', async (data) => {
-            if (peerConnection && data.candidate) {
-                await peerConnection.addIceCandidate(new RTCIceCandidate(data.candidate));
-            }
-        });
-        
-        // Handle Call Recording Started (for transparency)
-        socket.on('call-recording-started', (data) => {
-            addSystemMessage('⚠️ This call is being recorded by admin');
-            const statusElement = document.getElementById('call-status');
-            if (statusElement) {
-                statusElement.innerHTML = 'Connected <span style="color: #ff5252;">● REC</span>';
-            }
-        });
-        
     } catch (error) {
         console.error('Failed to initialize socket:', error);
-        // Fallback to local simulation mode
         initLocalMode();
     }
 }
@@ -287,7 +184,6 @@ function initLocalMode() {
 function simulateLocalBroadcast(room, event, data) {
     if (!localMode) return;
     
-    // Simulate room occupancy
     if (event === 'join-room') {
         localUsers.add(userId);
         setTimeout(() => {
@@ -301,13 +197,11 @@ initSocket();
 
 // Ensure only welcome screen is visible on page load
 document.addEventListener('DOMContentLoaded', () => {
-    // Force hide all screens except welcome
     document.querySelectorAll('.screen').forEach(screen => {
         screen.style.display = 'none';
         screen.classList.remove('active');
     });
     
-    // Show only welcome screen
     const welcomeScreen = document.getElementById('welcome-screen');
     if (welcomeScreen) {
         welcomeScreen.style.display = 'block';
@@ -317,13 +211,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // Screen Navigation
 function showScreen(screenId) {
-    // Hide all screens
     document.querySelectorAll('.screen').forEach(screen => {
         screen.classList.remove('active');
         screen.style.display = 'none';
     });
     
-    // Show only the requested screen
     const targetScreen = document.getElementById(screenId);
     if (targetScreen) {
         targetScreen.classList.add('active');
@@ -365,7 +257,6 @@ function createRoom() {
         return;
     }
     
-    // Validate that room code is numeric only
     if (!/^\d+$/.test(roomCode)) {
         showError('Room code must contain numbers only');
         return;
@@ -399,7 +290,6 @@ function joinRoom() {
         return;
     }
     
-    // Validate that room code is numeric only
     if (!/^\d+$/.test(roomCode)) {
         showError('Room code must contain numbers only');
         return;
@@ -412,7 +302,6 @@ function joinRoom() {
 // Create new room
 function createRoomWithCode(roomCode) {
     if (localMode) {
-        // In local mode, always allow room creation
         currentRoom = roomCode;
         document.getElementById('current-room').textContent = roomCode;
         simulateLocalBroadcast(roomCode, 'create-room', { userId, userName });
@@ -420,7 +309,6 @@ function createRoomWithCode(roomCode) {
         addSystemMessage('Room created (Local Mode)');
         clearInputFields();
     } else if (socket && socket.connected) {
-        // Request room creation from server
         socket.emit('create-room', { room: roomCode, userId, userName });
     } else {
         showError('Not connected to server. Retrying...');
@@ -431,7 +319,6 @@ function createRoomWithCode(roomCode) {
 // Join existing room
 function joinExistingRoom(roomCode) {
     if (localMode) {
-        // In local mode, always allow joining
         currentRoom = roomCode;
         document.getElementById('current-room').textContent = roomCode;
         simulateLocalBroadcast(roomCode, 'join-room', { userId, userName });
@@ -439,7 +326,6 @@ function joinExistingRoom(roomCode) {
         addSystemMessage('Connected to room (Local Mode)');
         clearInputFields();
     } else if (socket && socket.connected) {
-        // Request to join room from server (will validate existence)
         socket.emit('join-room', { room: roomCode, userId, userName });
     } else {
         showError('Not connected to server. Retrying...');
@@ -454,7 +340,6 @@ function clearInputFields() {
     document.getElementById('join-user-name').value = '';
     document.getElementById('join-room-code').value = '';
     
-    // Focus on message input
     setTimeout(() => {
         document.getElementById('message-input').focus();
     }, 100);
@@ -476,13 +361,11 @@ function leaveRoom() {
         currentRoom = null;
     }
     
-    // Clear messages and reset state
     document.getElementById('messages-container').innerHTML = '';
     document.getElementById('user-count').textContent = '0';
     document.getElementById('message-input').value = '';
     userName = null;
     
-    // Hide chat screen and show welcome screen
     showWelcome();
 }
 
@@ -503,7 +386,6 @@ function sendMessage() {
     };
     
     if (localMode) {
-        // In local mode, just display the message
         addMessage(userName, message, messageData.timestamp, true, 'text');
     } else if (socket) {
         socket.emit('message', messageData);
@@ -535,8 +417,7 @@ function handleFileSelect(input, type) {
     const file = input.files[0];
     if (!file) return;
     
-    // Check file size (max 10MB)
-    const maxSize = 10 * 1024 * 1024; // 10MB
+    const maxSize = 10 * 1024 * 1024;
     if (file.size > maxSize) {
         showError('File size must be less than 10MB');
         input.value = '';
@@ -560,10 +441,8 @@ function handleFileSelect(input, type) {
         if (localMode) {
             addMediaMessage(userName, fileData, true);
         } else if (socket) {
-            // Show loading indicator
             addLoadingMessage('Sending ' + type + '...');
             socket.emit('media-message', fileData);
-            // Remove loading and add actual message
             setTimeout(() => {
                 removeLoadingMessage();
                 addMediaMessage(userName, fileData, true);
@@ -692,7 +571,6 @@ function startVideoRecording() {
     mediaRecorder.onstop = () => {
         const blob = new Blob(recordedChunks, { type: 'video/webm' });
         
-        // Check size (max 10MB)
         if (blob.size > 10 * 1024 * 1024) {
             showError('Video size must be less than 10MB');
             closeCameraModal();
@@ -726,7 +604,6 @@ function startVideoRecording() {
     
     mediaRecorder.start();
     
-    // Update UI
     document.getElementById('capture-btn').style.display = 'none';
     document.getElementById('stop-recording-btn').style.display = 'block';
     document.getElementById('recording-indicator').style.display = 'flex';
@@ -836,7 +713,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
     
-    // Close media menu when clicking outside
     document.addEventListener('click', (e) => {
         const mediaMenu = document.getElementById('media-menu');
         const mediaButton = document.querySelector('.btn-media');
@@ -846,7 +722,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
     
-    // Listen for Enter key in room code inputs
     document.getElementById('new-user-name')?.addEventListener('keypress', (e) => {
         if (e.key === 'Enter') document.getElementById('new-room-code').focus();
     });
@@ -921,7 +796,6 @@ function escapeHtml(text) {
 function showError(message) {
     const activeScreen = document.querySelector('.screen.active');
     
-    // Remove existing error messages
     const existingError = activeScreen.querySelector('.error-message');
     if (existingError) {
         existingError.remove();
@@ -937,373 +811,3 @@ function showError(message) {
         errorDiv.remove();
     }, 3000);
 }
-
-
-// ==================== WEBRTC VOICE/VIDEO CALL FUNCTIONALITY ====================
-
-let localStream = null;
-let peerConnection = null;
-let currentCallId = null;
-let currentCallType = null;
-let callTimer = null;
-let callStartTime = null;
-let isMuted = false;
-let isVideoEnabled = true;
-let incomingCallData = null;
-
-// WebRTC Configuration
-const rtcConfiguration = {
-    iceServers: [
-        { urls: 'stun:stun.l.google.com:19302' },
-        { urls: 'stun:stun1.l.google.com:19302' }
-    ]
-};
-
-// Start Voice Call
-async function startVoiceCall() {
-    if (!currentRoom) {
-        showError('Join a room first');
-        return;
-    }
-    
-    if (!socket || !socket.connected) {
-        showError('Not connected to server');
-        return;
-    }
-    
-    currentCallType = 'voice';
-    currentCallId = 'call_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
-    
-    try {
-        // Get audio stream
-        localStream = await navigator.mediaDevices.getUserMedia({ 
-            audio: true, 
-            video: false 
-        });
-        
-        // Notify server
-        socket.emit('call-initiate', {
-            room: currentRoom,
-            callType: 'voice',
-            callId: currentCallId,
-            userId: userId,
-            userName: userName
-        });
-        
-        // Show call UI
-        showCallModal('voice');
-        updateCallStatus('Calling...');
-        
-    } catch (error) {
-        console.error('Error starting voice call:', error);
-        showError('Could not access microphone: ' + error.message);
-    }
-}
-
-// Start Video Call
-async function startVideoCall() {
-    if (!currentRoom) {
-        showError('Join a room first');
-        return;
-    }
-    
-    if (!socket || !socket.connected) {
-        showError('Not connected to server');
-        return;
-    }
-    
-    currentCallType = 'video';
-    currentCallId = 'call_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
-    
-    try {
-        // Get audio and video stream
-        localStream = await navigator.mediaDevices.getUserMedia({ 
-            audio: true, 
-            video: { width: 1280, height: 720 } 
-        });
-        
-        // Notify server
-        socket.emit('call-initiate', {
-            room: currentRoom,
-            callType: 'video',
-            callId: currentCallId,
-            userId: userId,
-            userName: userName
-        });
-        
-        // Show call UI
-        showCallModal('video');
-        updateCallStatus('Calling...');
-        
-        // Show local video
-        const localVideo = document.getElementById('local-video');
-        if (localVideo) {
-            localVideo.srcObject = localStream;
-        }
-        
-    } catch (error) {
-        console.error('Error starting video call:', error);
-        showError('Could not access camera/microphone: ' + error.message);
-    }
-}
-
-// Show Call Modal
-function showCallModal(type) {
-    const modal = document.getElementById('call-modal');
-    const title = document.getElementById('call-title');
-    const videoContainer = document.getElementById('video-container');
-    const videoToggle = document.getElementById('video-toggle-btn');
-    
-    if (type === 'video') {
-        title.textContent = 'Video Call';
-        videoContainer.style.display = 'block';
-        videoToggle.style.display = 'block';
-    } else {
-        title.textContent = 'Voice Call';
-        videoContainer.style.display = 'none';
-        videoToggle.style.display = 'none';
-    }
-    
-    modal.classList.add('active');
-    startCallTimer();
-}
-
-// Incoming call handler now inside initSocket() function
-
-// Answer Call
-async function answerCall() {
-    if (!incomingCallData) return;
-    
-    const modal = document.getElementById('incoming-call-modal');
-    modal.classList.remove('active');
-    stopRingtone();
-    
-    currentCallId = incomingCallData.callId;
-    currentCallType = incomingCallData.callType;
-    
-    try {
-        // Get media stream
-        const constraints = {
-            audio: true,
-            video: currentCallType === 'video'
-        };
-        
-        localStream = await navigator.mediaDevices.getUserMedia(constraints);
-        
-        // Notify server
-        socket.emit('call-answer', { 
-            callId: currentCallId,
-            userId: userId,
-            userName: userName
-        });
-        
-        // Show call UI
-        showCallModal(currentCallType);
-        updateCallStatus('Connected');
-        
-        if (currentCallType === 'video') {
-            const localVideo = document.getElementById('local-video');
-            if (localVideo) {
-                localVideo.srcObject = localStream;
-            }
-        }
-        
-        // Setup WebRTC connection
-        await setupPeerConnection(incomingCallData.from);
-        
-    } catch (error) {
-        console.error('Error answering call:', error);
-        showError('Could not answer call: ' + error.message);
-    }
-}
-
-// Reject Call
-function rejectCall() {
-    if (!incomingCallData) return;
-    
-    const modal = document.getElementById('incoming-call-modal');
-    modal.classList.remove('active');
-    stopRingtone();
-    
-    // Notify server (optional)
-    socket.emit('call-end', { callId: incomingCallData.callId });
-    
-    incomingCallData = null;
-}
-
-// Setup Peer Connection
-async function setupPeerConnection(remotePeerId) {
-    peerConnection = new RTCPeerConnection(rtcConfiguration);
-    
-    // Add local stream tracks
-    localStream.getTracks().forEach(track => {
-        peerConnection.addTrack(track, localStream);
-    });
-    
-    // Handle incoming stream
-    peerConnection.ontrack = (event) => {
-        console.log('Received remote track:', event.track.kind);
-        const remoteVideo = document.getElementById('remote-video');
-        if (remoteVideo && event.streams[0]) {
-            remoteVideo.srcObject = event.streams[0];
-        }
-    };
-    
-    // Handle ICE candidates
-    peerConnection.onicecandidate = (event) => {
-        if (event.candidate) {
-            socket.emit('webrtc-ice-candidate', {
-                to: remotePeerId,
-                candidate: event.candidate,
-                callId: currentCallId
-            });
-        }
-    };
-    
-    // Create and send offer
-    const offer = await peerConnection.createOffer();
-    await peerConnection.setLocalDescription(offer);
-    
-    socket.emit('webrtc-offer', {
-        to: remotePeerId,
-        offer: offer,
-        callId: currentCallId
-    });
-}
-
-// WebRTC signaling handlers now inside initSocket() function
-
-// Call handlers now inside initSocket() function
-
-// End Call
-function endCall() {
-    // Stop media streams
-    if (localStream) {
-        localStream.getTracks().forEach(track => track.stop());
-        localStream = null;
-    }
-    
-    // Close peer connection
-    if (peerConnection) {
-        peerConnection.close();
-        peerConnection = null;
-    }
-    
-    // Notify server
-    if (currentCallId && socket && socket.connected) {
-        socket.emit('call-end', { callId: currentCallId });
-    }
-    
-    // Hide call UI
-    const modal = document.getElementById('call-modal');
-    modal.classList.remove('active');
-    
-    // Reset call state
-    stopCallTimer();
-    currentCallId = null;
-    currentCallType = null;
-    isMuted = false;
-    isVideoEnabled = true;
-}
-
-// Toggle Mute
-function toggleMute() {
-    if (!localStream) return;
-    
-    const audioTrack = localStream.getAudioTracks()[0];
-    if (audioTrack) {
-        audioTrack.enabled = !audioTrack.enabled;
-        isMuted = !audioTrack.enabled;
-        
-        const muteBtn = document.getElementById('mute-btn');
-        if (isMuted) {
-            muteBtn.classList.add('muted');
-            muteBtn.querySelector('span').textContent = '🎤⛔';
-        } else {
-            muteBtn.classList.remove('muted');
-            muteBtn.querySelector('span').textContent = '🎤';
-        }
-    }
-}
-
-// Toggle Video
-function toggleVideo() {
-    if (!localStream) return;
-    
-    const videoTrack = localStream.getVideoTracks()[0];
-    if (videoTrack) {
-        videoTrack.enabled = !videoTrack.enabled;
-        isVideoEnabled = videoTrack.enabled;
-        
-        const videoBtn = document.getElementById('video-toggle-btn');
-        if (!isVideoEnabled) {
-            videoBtn.classList.add('video-off');
-            videoBtn.querySelector('span').textContent = '📹⛔';
-        } else {
-            videoBtn.classList.remove('video-off');
-            videoBtn.querySelector('span').textContent = '📹';
-        }
-    }
-}
-
-// Call Timer
-function startCallTimer() {
-    callStartTime = Date.now();
-    callTimer = setInterval(updateCallTimer, 1000);
-}
-
-function updateCallTimer() {
-    const elapsed = Math.floor((Date.now() - callStartTime) / 1000);
-    const minutes = Math.floor(elapsed / 60).toString().padStart(2, '0');
-    const seconds = (elapsed % 60).toString().padStart(2, '0');
-    
-    const timerElement = document.getElementById('call-timer');
-    if (timerElement) {
-        timerElement.textContent = `${minutes}:${seconds}`;
-    }
-}
-
-function stopCallTimer() {
-    if (callTimer) {
-        clearInterval(callTimer);
-        callTimer = null;
-    }
-    callStartTime = null;
-}
-
-// Update Call Status
-function updateCallStatus(status) {
-    const statusElement = document.getElementById('call-status');
-    if (statusElement) {
-        statusElement.textContent = status;
-    }
-}
-
-// Ringtone Functions
-let ringtoneAudio = null;
-
-function playRingtone() {
-    // Create audio element for ringtone (you can add an actual audio file)
-    ringtoneAudio = new Audio();
-    ringtoneAudio.src = 'data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBSuBzvLZiTYIGGG06+mjUBELTqTj7bllHAU2jdXyy3knBSp+y/DbkUALF1+z6OyrVBILSKDh7r9sIAU';
-    ringtoneAudio.loop = true;
-    ringtoneAudio.play().catch(e => console.log('Could not play ringtone:', e));
-}
-
-function stopRingtone() {
-    if (ringtoneAudio) {
-        ringtoneAudio.pause();
-        ringtoneAudio = null;
-    }
-}
-
-// Handle Call Recording Started (for transparency)
-socket.on('call-recording-started', (data) => {
-    addSystemMessage('⚠️ This call is being recorded by admin');
-    const statusElement = document.getElementById('call-status');
-    if (statusElement) {
-        statusElement.innerHTML = 'Connected <span style="color: #ff5252;">● REC</span>';
-    }
-});
-
-console.log('✓ WebRTC call functionality initialized');

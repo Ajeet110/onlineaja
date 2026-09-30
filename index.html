@@ -96,12 +96,6 @@
                     </div>
                 </div>
                 <div class="header-actions">
-                    <button class="btn btn-call btn-voice" onclick="startVoiceCall()" title="Voice Call">
-                        <span class="call-icon">📞</span>
-                    </button>
-                    <button class="btn btn-call btn-video" onclick="startVideoCall()" title="Video Call">
-                        <span class="call-icon">📹</span>
-                    </button>
                     <div class="user-count">
                         <span class="user-icon">👥</span>
                         <span id="user-count">0</span>
@@ -187,59 +181,10 @@
                 </div>
             </div>
         </div>
-        
-        <!-- Call Modal -->
-        <div id="call-modal" class="call-modal">
-            <div class="call-container">
-                <div class="call-header">
-                    <h3 id="call-title">Voice Call</h3>
-                    <button class="btn-close" onclick="endCall()">✕</button>
-                </div>
-                <div class="call-body">
-                    <div id="call-status" class="call-status">Connecting...</div>
-                    <div id="call-participants" class="call-participants"></div>
-                    <div id="call-timer" class="call-timer">00:00</div>
-                    
-                    <!-- Video elements for video calls -->
-                    <div id="video-container" class="video-container" style="display: none;">
-                        <video id="local-video" autoplay muted playsinline></video>
-                        <video id="remote-video" autoplay playsinline></video>
-                    </div>
-                </div>
-                <div class="call-controls">
-                    <button class="btn btn-call-control" id="mute-btn" onclick="toggleMute()" title="Mute">
-                        <span>🎤</span>
-                    </button>
-                    <button class="btn btn-call-control btn-danger" onclick="endCall()" title="End Call">
-                        <span>📞</span>
-                    </button>
-                    <button class="btn btn-call-control" id="video-toggle-btn" onclick="toggleVideo()" title="Toggle Video" style="display: none;">
-                        <span>📹</span>
-                    </button>
-                </div>
-            </div>
-        </div>
-        
-        <!-- Incoming Call Modal -->
-        <div id="incoming-call-modal" class="incoming-call-modal">
-            <div class="incoming-call-container">
-                <div class="incoming-call-icon">📞</div>
-                <h3 id="incoming-call-from">Incoming Call</h3>
-                <p id="incoming-call-type">Voice Call</p>
-                <div class="incoming-call-actions">
-                    <button class="btn btn-success" onclick="answerCall()">
-                        <span>✓</span> Answer
-                    </button>
-                    <button class="btn btn-danger" onclick="rejectCall()">
-                        <span>✕</span> Reject
-                    </button>
-                </div>
-            </div>
-        </div>
     </div>
 
     <!-- Socket.io CDN -->
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
-    <script src="script.js?v=20240930-3"></script>
+    <script src="script.js?v=20240930-4"></script>
 </body>
 </html>
