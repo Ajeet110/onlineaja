@@ -43,8 +43,8 @@ let userName = null;
 
 // Initialize Socket.IO connection
 function initSocket() {
-    // Connect to local server (change to deployed URL for production)
-    const socketUrl = 'http://localhost:3000';
+    // Connect to server (uses environment variable or current host for deployment)
+    const socketUrl = process.env.SOCKET_URL || (window.location.hostname === 'localhost' ? 'http://localhost:3000' : window.location.origin);
     
     try {
         socket = io(socketUrl, {
