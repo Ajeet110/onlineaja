@@ -20,6 +20,9 @@ const io = socketIO(server, {
 app.use(cors());
 app.use(express.json());
 
+// Serve static files from root directory
+app.use(express.static(__dirname));
+
 // Store room information with creation timestamps
 const rooms = new Map(); // Map<roomCode, Set<socketId>>
 const roomMetadata = new Map(); // Map<roomCode, { createdAt: timestamp }>
